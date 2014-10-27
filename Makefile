@@ -15,4 +15,4 @@ server: $(PTH)/server.cc
 	$(CC) $(FLAGS) $(LDLIBS) -o server $(PTH)/server.cc
 
 clean:
-	rm -f client broker worker
+	rm -f client broker server
