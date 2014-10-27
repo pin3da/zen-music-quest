@@ -30,14 +30,14 @@ This guys is basically the manager here, he has the address of all the servers i
 
              ______
             |      |
-      RES --->0  1<---RES
+      REP --->0  1<---REP
     (bind)  |______| (bind)
 
 ####Socket 0:
-Type RES socket to which all servers connect when they arise in order to register with the broker.
+Type REP socket to which all servers connect when they arise in order to register with the broker.
 
 ####Socket 1:
-Type RES socket to which clients connect in order to obtain the address to a server.
+Type REP socket to which clients connect in order to obtain the address to a server.
 
 ##Server:
 This guy is the serious worker here, he has a limited number of other servers connected to him, and he is connected to another server in a sort of Tree Architecture, he has a number of songs in it's own hard drive, which he can serve to any clients that get his address, he can also search the tree for any song a client connected to him asks for and returns the address of the server who has it to that client, it also has a cache of the most popular songs his clients ask for and the addresses to them, in order to send them directly. As an extended functionality he can replicate a song that has been asked to him too many times to his neighbors. When a new Server Arises, he sends a message to the Broker telling him where to find him. 
