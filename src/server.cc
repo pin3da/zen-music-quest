@@ -21,8 +21,8 @@ int main() {
     zmqpp::message message;
     router.receive(message);
 
-    // string identity;
-    zmqpp::frame identity;
+    string identity;
+    //zmqpp::frame identity;
     message >> identity;
 
     if (identity.size() == 0)
