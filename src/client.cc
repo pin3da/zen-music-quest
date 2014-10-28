@@ -13,11 +13,20 @@ using namespace std;
  *            and we can handle every char like a byte.
  * */
 
-int main() {
+int main(int argc, char** argv) {
   const string endpoint = "tcp://localhost:6666";
   zmqpp::context context;
   zmqpp::socket dealer(context, zmqpp::socket_type::dealer);
   dealer.connect(endpoint);
+  string name;
+  
+  if (argc > 1){
+    name = argv[1];
+  }
+  else{
+    cout << "No song provided!" << endl;
+    return 0;
+  }
 
   // Up to this many chunks in transit
   size_t credit = PIPELINE;
@@ -26,13 +35,13 @@ int main() {
   size_t chunks = 0; // Total chunks received
   size_t offset = 0; // Offset of next chunk request
 
-  FILE *file = fopen ("output.mp3","wb");
+  ofstream song("output.mp3");
 
   while (true) {
     while (credit) {
       // Ask for next chunk
       zmqpp::message message;
-      message << "fetch" << offset << CHUNK_SIZE;
+      message << "fetch" << name << offset << CHUNK_SIZE;
       dealer.send(message);
       offset += CHUNK_SIZE;
       credit--;
@@ -41,17 +50,21 @@ int main() {
     dealer.receive(message);
     string chunk;
     message >> chunk;
+    if(chunk == "NF"){
+      cout << "Not Found" << endl;
+      break;
+    }
     if (chunk.size() == 0)
       break; // Shutting down, quit
     chunks++;
     credit++;
     size_t size = chunk.size();
-    fwrite(chunk.data(), sizeof(char), chunk.size(), file);
+    song.write(chunk.c_str(), size);
     total += size;
-    if (size < CHUNK_SIZE)
+    if (size > CHUNK_SIZE)
       break; // Last chunk received; exit
   }
   printf ("%zd chunks received, %zd bytes\n", chunks, total);
-  fclose(file);
+  song.close();
   return 0;
 }
