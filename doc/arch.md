@@ -4,7 +4,7 @@ Zen Music Quest - Basic architecture
 This Project contains 3 Basic models working in conjunction, providing a music listening service (A very basic one) called Zen Music Quest ( a homage to Zero MQ):
 
 ##Client: 
-This guy just wants to listen to music and relies on the other guys to get his hunger for tune satisfied (what a douche), on first instance he will connect to a Broker which will then give him another address to connect to, this is the address of a server which will do the client's bidding (such an obedient fella), when the client wants to listen to a song, he will ask the server for yet another address to connect to, which is the address of a server containing the song, which will send it directly to him.
+This guy just wants to listen to music and relies on the other guys to get his hunger for tunes satisfied (what a douche), on first instance he will connect to a Broker which will then give him another address to connect to, this is the address of a server which will do the client's bidding (such an obedient fella), when the client wants to listen to a song, he will ask the server for yet another address to connect to, which is the address of a server containing the song, which will send it directly to him.
 
 ###Socket Description
                ______
