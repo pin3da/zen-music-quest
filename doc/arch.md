@@ -13,7 +13,7 @@ This guy just wants to listen to music and relies on the other guys to get his h
     (connect) |      |
        REQ ---->1    |
     (connect) |      |
-       REQ ---->2    |
+    DEALER ---->2    |
     (connect) |______|
 
 ####Socket 0: 
@@ -21,7 +21,7 @@ a Type REQ socket which receives the data from the broker, which contains the se
 ####Socket 1: 
 a Type REQ socket that will connect  and remain connected to a server which will provide search data, and the addresses to connect to in order to download songs.
 ####Socket 2: 
-a Type REQ socket that will connect to different servers in order to download a song from them
+a Type DEALER socket that will connect to different servers in order to download a song from them
 
 ##Broker:
 This guys is basically the manager here, he has the address of all the servers in the network, and the number of clients connected to each of them. Initially all clients connect to him to ask them for a server (might as well call this guy a pimp), he checks how many clients each server has and responds to the client with the address of the server with the least clients connected to him. Also each time a new server arises, it sends a message to the broker telling him that, and the broker adds him/her to the list.
