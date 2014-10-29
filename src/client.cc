@@ -5,6 +5,7 @@
 const size_t CHUNK_SIZE = 250000;
 
 using namespace std;
+using namespace zmqpp;
 
 /**
  * Example taken of : http://zguide.zeromq.org/c:fileio3
@@ -14,9 +15,26 @@ using namespace std;
  * */
 
 int main(int argc, char** argv) {
-  const string endpoint = "tcp://localhost:6666";
-  zmqpp::context context;
-  zmqpp::socket dealer(context, zmqpp::socket_type::dealer);
+  string endpoint = "tcp://localhost:";
+  const string br_port = "tcp://localhost:6666";
+  context ctx;
+  socket dealer(ctx, socket_type::dealer);
+  socket br_end(ctx, socket_type::req);
+  br_end.connect(br_port);
+  
+  string ans = "";
+  
+  while(ans != "hello"){
+    message incmsg, outmsg;
+    outmsg << "hello";
+    br_end.send(outmsg);
+    br_end.receive(incmsg);
+    incmsg >> ans;
+    incmsg >> endpoint;
+  }
+  
+  cout << "I know where to connect to " << endpoint << endl;
+  
   dealer.connect(endpoint);
   string name;
   
@@ -27,6 +45,7 @@ int main(int argc, char** argv) {
     cout << "No song provided!" << endl;
     return 0;
   }
+  
 
   // Up to this many chunks in transit
   size_t credit = PIPELINE;
@@ -40,13 +59,13 @@ int main(int argc, char** argv) {
   while (true) {
     while (credit) {
       // Ask for next chunk
-      zmqpp::message message;
+      message message;
       message << "fetch" << name << offset << CHUNK_SIZE;
       dealer.send(message);
       offset += CHUNK_SIZE;
       credit--;
     }
-    zmqpp::message message;
+    message message;
     dealer.receive(message);
     string chunk;
     message >> chunk;

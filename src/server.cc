@@ -5,6 +5,7 @@
 #define PIPELINE 10
 
 using namespace std;
+using namespace zmqpp;
 
 int searchFile(string name){ 
 	DIR* dirp = opendir("Music");
@@ -21,48 +22,75 @@ int searchFile(string name){
 	return 0;
 }  
 
-int main() {
-  const string endpoint = "tcp://*:6666";
-  zmqpp::context context;
-  ifstream song;
-
-  zmqpp::socket router(context, zmqpp::socket_type::router);
+int main(int argc, char** argv) {
+  string endpoint = "tcp://*:";
+  string address = "tcp://";
+  if(argc == 3){
+    endpoint += argv[2];
+    address += argv[1]; 
+    address += ":";
+    address += argv[2];
+  }
+  else{
+    cout << "Must provide an IP and port" << endl;
+    return 0;
+  }
+  
+  const string br_port = "tcp://localhost:5555";
+  context ctx;
+  
+  socket br_end(ctx, socket_type::req);
+  br_end.connect(br_port); 
+  
+  socket router(ctx, socket_type::router);
   // We have two parts per message so HWM is PIPELINE * 2
-  router.set(zmqpp::socket_option::send_high_water_mark, PIPELINE * 2);
+  router.set(socket_option::send_high_water_mark, PIPELINE * 2);
   router.bind(endpoint);
-
+  
+  string ans = "";
+  while(ans != "OK"){
+    message incmsg, outmsg;
+    outmsg << address;
+    br_end.send(outmsg);
+    br_end.receive(incmsg);
+    incmsg >> ans;    
+  }
+  
+  cout << "Accepted by broker!" << endl;
+  ifstream song;
+  
   while (true) {
     // First frame in each message is the sender identity
-    zmqpp::message message;
-    router.receive(message);
+    message incmsg;
+    router.receive(incmsg);
 
     string identity;
     //zmqpp::frame identity;
-    message >> identity;
+    incmsg >> identity;
     
     if (identity.size() == 0)
       break; // Shutting down, quit
     
     // Second frame is "fetch" command
     string command;
-    message >> command;
+    incmsg >> command;
     assert (command == "fetch");
     
     //Third frame is song name
     string name;
-    message >> name;
+    incmsg >> name;
     
-    zmqpp::message output;
+    message output;
     
     if (searchFile(name)){
       song.open("Music/" + name);
-      // Third frame is chunk offset in file
+      // Fourth frame is chunk offset in file
       size_t offset;
-      message >> offset;
+      incmsg >> offset;
 
-      // Fourth frame is maximum chunk size
+      // Fifth frame is maximum chunk size
       size_t chunksz;
-      message >> chunksz;
+      incmsg >> chunksz;
 
       // Read chunk of data from file
       song.seekg(offset);
@@ -77,7 +105,6 @@ int main() {
       else
         size = chunksz;
 
-      // Send resulting chunk to client
       string chunk(data, size);
       //cout << chunk << endl;
       output << identity << chunk;
