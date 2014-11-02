@@ -14,38 +14,41 @@ using namespace zmqpp;
  *            and we can handle every char like a byte.
  * */
 
-int main(int argc, char** argv) {
-  string endpoint = "tcp://localhost:";
-  const string br_port = "tcp://localhost:6666";
-  context ctx;
-  socket dealer(ctx, socket_type::dealer);
-  socket br_end(ctx, socket_type::req);
-  br_end.connect(br_port);
-  
-  string ans = "";
-  
-  while(ans != "hello"){
+void ask_for_server(socket &broker, string &song_endpoint) {
+  string ans;
+  while (ans != "hello") {
     message incmsg, outmsg;
     outmsg << "hello";
-    br_end.send(outmsg);
-    br_end.receive(incmsg);
+    broker.send(outmsg);
+    broker.receive(incmsg);
     incmsg >> ans;
-    incmsg >> endpoint;
+    if (ans != "bye")
+      incmsg >> song_endpoint;
   }
-  
-  cout << "I know where to connect to " << endpoint << endl;
-  
-  dealer.connect(endpoint);
-  string name;
-  
-  if (argc > 1){
-    name = argv[1];
-  }
-  else{
+  cout << "I know where to connect to " << song_endpoint << endl;
+}
+
+int main(int argc, char** argv) {
+  const string broker_endpoint = "tcp://localhost:6667";
+  string song_endpoint = "tcp://localhost:6666";
+
+  string song_name;
+  if (argc > 1) {
+    song_name = argv[1];
+  } else {
     cout << "No song provided!" << endl;
+    cout << "Usage : " << argv[0] << " song_name" << endl;
     return 0;
   }
-  
+
+
+  context ctx;
+  socket song_s(ctx, socket_type::dealer);
+  socket broker(ctx, socket_type::req);
+  broker.connect(broker_endpoint);
+
+  ask_for_server(broker, song_endpoint);
+  song_s.connect(song_endpoint);
 
   // Up to this many chunks in transit
   size_t credit = PIPELINE;
@@ -60,13 +63,13 @@ int main(int argc, char** argv) {
     while (credit) {
       // Ask for next chunk
       message message;
-      message << "fetch" << name << offset << CHUNK_SIZE;
-      dealer.send(message);
+      message << "fetch" << song_name << offset << CHUNK_SIZE;
+      song_s.send(message);
       offset += CHUNK_SIZE;
       credit--;
     }
     message message;
-    dealer.receive(message);
+    song_s.receive(message);
     string chunk;
     message >> chunk;
     if(chunk == "NF"){
@@ -80,10 +83,11 @@ int main(int argc, char** argv) {
     size_t size = chunk.size();
     song.write(chunk.c_str(), size);
     total += size;
-    if (size > CHUNK_SIZE)
+    if (size < CHUNK_SIZE)
       break; // Last chunk received; exit
   }
-  printf ("%zd chunks received, %zd bytes\n", chunks, total);
+
+  printf("%zd chunks received, %zd bytes\n", chunks, total);
   song.close();
   return 0;
 }
