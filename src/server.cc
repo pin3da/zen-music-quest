@@ -108,11 +108,18 @@ int main(int argc, char** argv) {
 
   wake_up(broker, address);
 
+  poller poller;
+  poller.add(song_c);
+
   while (true) {
-    message incmsg, output;
-    song_c.receive(incmsg);
-    dispatch(incmsg, output);
-    song_c.send(output);
+    if (poller.poll()) {
+      if (poller.has_input(song_c)) {
+        message incmsg, output;
+        song_c.receive(incmsg);
+        dispatch(incmsg, output);
+        song_c.send(output);
+      }
+    }
   }
 
   return 0;
