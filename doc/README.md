@@ -7,9 +7,9 @@ Zen Music Quest - Doc
 
 ### Port usage
 
-| Component 1   | Component 2   | Port  |
-| ------------- |---------------| ----- |
-| client        | song_server   | 6666  |
-| client        | broker        | 6667  |
-| broker        | servers       | 6668  |
+| Component 1 (bind)  | Component 2 (connect)  | Port range   |
+| ------------- |---------------| -----        |
+| song_server   | client        | 5555 - 5655  |
+| broker        | client        | 6667         |
+| broker        | servers       | 6668         |
 
