@@ -27,8 +27,8 @@ bool search_file(string name){
 }
 
 
-void wake_up(socket &broker, socket &parent, string &address){
-  string ans = "";
+void wake_up(socket &broker, string &address){
+  string ans;
   message incmsg, outmsg;
   while(ans != "OK"){
     outmsg << address;
@@ -37,9 +37,13 @@ void wake_up(socket &broker, socket &parent, string &address){
     incmsg >> ans;
   }
   cout << "Accepted by broker!" << endl;
+}
 
+void connect_parent(socket &parent) {
+  string ans;
+  message incmsg, outmsg;
   while(ans != "OK"){
-    outmsg << address;
+    outmsg << "add";
     parent.send(outmsg);
     parent.receive(incmsg);
     incmsg >> ans;
@@ -121,16 +125,20 @@ void dispatch_child(message &request, message &response) {
   if (identity.size() == 0)
     return;
 
-  string command;
-  request >> command;
+  string empty, command;
+  request >> empty >> command;
+  assert(empty.size() == 0);
+
+  response << identity << empty;
+
   if (command == "add") {
-    response << identity;
-    return add_child(identity, response);
+    add_child(identity, response);
+    return;
   }
 
   if (command == "search") {
-    request << identity;
-    return search_song(response, response);
+    search_song(response, response);
+    return;
   }
 }
 
@@ -146,7 +154,7 @@ int main(int argc, char** argv) {
     client_endpoint += to_string(client_port);
     address  += argv[1] + string(":") + to_string(client_port);
     parent_endpoint += argv[3];
-    children_endpoint += argv[1] + string(":") + to_string(children_port);
+    children_endpoint += to_string(children_port);
   } else {
     // cout << "Must provide an IP and id" << endl;
     cout << "Usage : " << argv[0] << " ip id parent_ip" << endl;
@@ -168,10 +176,12 @@ int main(int argc, char** argv) {
   socket children(context, socket_type::router);
   children.bind(children_endpoint);
 
+  wake_up(broker, address);
   socket parent(context, socket_type::req);
-  parent.connect(parent_endpoint);
-
-  wake_up(broker, parent, address);
+  if (parent_endpoint != "tcp://localhost:4444") { // Root
+    parent.connect(parent_endpoint);
+    connect_parent(parent);
+  }
 
   cout << "Listening for servers : " << children_endpoint << endl;
   cout << "Listening for clients : " << client_endpoint << endl;
@@ -190,7 +200,6 @@ int main(int argc, char** argv) {
         dispatch_client(request, response);
         client.send(response);
       }
-
       if (poller.has_input(children)) {
         children.receive(request);
         dispatch_child(request, response);
