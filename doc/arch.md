@@ -49,7 +49,7 @@ This guy is the serious worker here, he has a limited number of other servers co
         ROUTER --->0  1<--- ROUTER
         (bind)  |        |  (bind)
                 |        |
-        ROUTER --->2  3<---  REQ
+         REQ  --->2  3<---   REQ
       (connect) |________| (connect)
       
 ####Socket 0:
@@ -60,7 +60,7 @@ Type ROUTER socket to which clients will connect in order to search for  music, 
 If the server is asked for a download, the song will be sent to the client.
 
 ####Socket 2:
-Type ROUTER socket that will connect to another server (the one that would be the father rom a tree architecture perspective).
+Type REQ socket that will connect to another server (the one that would be the father rom a tree architecture perspective).
 
 ####Socket 3:
 Type REQ socket to notify the existence of a new server.
