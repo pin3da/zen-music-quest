@@ -28,28 +28,7 @@ void ask_for_server(socket &broker, string &song_endpoint) {
   cout << "I know where to connect to " << song_endpoint << endl;
 }
 
-int main(int argc, char** argv) {
-  const string broker_endpoint = "tcp://localhost:6667";
-  string song_endpoint = "tcp://localhost:6666";
-
-  string song_name;
-  if (argc > 1) {
-    song_name = argv[1];
-  } else {
-    cout << "No song provided!" << endl;
-    cout << "Usage : " << argv[0] << " song_name" << endl;
-    return 0;
-  }
-
-
-  context ctx;
-  socket song_s(ctx, socket_type::dealer);
-  socket broker(ctx, socket_type::req);
-  broker.connect(broker_endpoint);
-
-  ask_for_server(broker, song_endpoint);
-  song_s.connect(song_endpoint);
-
+void ask_for_song(socket &song_s, const string &song_name, string output = "output.mp3") {
   // Up to this many chunks in transit
   size_t credit = PIPELINE;
 
@@ -57,7 +36,7 @@ int main(int argc, char** argv) {
   size_t chunks = 0; // Total chunks received
   size_t offset = 0; // Offset of next chunk request
 
-  ofstream song("output.mp3");
+  ofstream song(output);
 
   while (true) {
     while (credit) {
@@ -89,5 +68,32 @@ int main(int argc, char** argv) {
 
   printf("%zd chunks received, %zd bytes\n", chunks, total);
   song.close();
+}
+
+
+int main(int argc, char** argv) {
+  const string broker_endpoint = "tcp://localhost:6667";
+  string server_endpoint = "tcp://localhost:6666";
+
+  string song_name;
+  if (argc > 1) {
+    song_name = argv[1];
+  } else {
+    cout << "No song provided!" << endl;
+    cout << "Usage : " << argv[0] << " song_name" << endl;
+    return 0;
+  }
+
+
+  context context;
+  socket broker(context, socket_type::req);
+  broker.connect(broker_endpoint);
+
+  ask_for_server(broker, server_endpoint);
+  socket server(context, socket_type::dealer);
+  server.connect(server_endpoint);
+
+  ask_for_song(server, song_name);
+
   return 0;
 }
