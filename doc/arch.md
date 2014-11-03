@@ -56,11 +56,12 @@ This guy is the serious worker here, he has a limited number of other servers co
 Type ROUTER socket where other servers will connect to (the ones that would be the children from a tree architecture perspective).
 
 ####Socket 1:
-Type ROUTER socket through which songs will be sent to clients
+Type ROUTER socket to which clients will connect in order to search for  music, through this socket the server will send the address of the server that have the song requested to the client who requested it.
+If the server is asked for a download, the song will be sent to the client.
 
 ####Socket 2:
 Type ROUTER socket that will connect to another server (the one that would be the father rom a tree architecture perspective).
 
 ####Socket 3:
-Type ROUTER socket to which clients will connect in order to search for music, through this socket the server will send the addresses of the servers that have the song requested to the client who requested it.
+Type REQ socket to notify the existence of a new server.
 
