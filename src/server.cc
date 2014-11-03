@@ -125,11 +125,10 @@ void dispatch_child(message &request, message &response) {
   if (identity.size() == 0)
     return;
 
-  string empty, command;
-  request >> empty >> command;
-  assert(empty.size() == 0);
+  string command;
+  request >> command;
 
-  response << identity << empty;
+  response << identity;
 
   if (command == "add") {
     add_child(identity, response);
@@ -177,7 +176,7 @@ int main(int argc, char** argv) {
   children.bind(children_endpoint);
 
   wake_up(broker, address);
-  socket parent(context, socket_type::req);
+  socket parent(context, socket_type::dealer);
   if (parent_endpoint != "tcp://localhost:4444") { // Root
     parent.connect(parent_endpoint);
     connect_parent(parent);
