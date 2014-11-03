@@ -9,7 +9,7 @@
 using namespace std;
 using namespace zmqpp;
 
-const string music_path = "./music";
+const string music_path = "./Music";
 vector<string> av_children; // List of "below" servers.
 
 bool search_file(string name){
