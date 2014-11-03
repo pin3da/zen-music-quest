@@ -10,7 +10,7 @@ using namespace std;
 using namespace zmqpp;
 
 const string music_path = "./music";
-
+vector<string> av_children; // List of "below" servers.
 
 bool search_file(string name){
   DIR* dirp = opendir(music_path.c_str());
@@ -27,16 +27,25 @@ bool search_file(string name){
 }
 
 
-void wake_up(socket &broker, string &address){
+void wake_up(socket &broker, socket &parent, string &address){
   string ans = "";
+  message incmsg, outmsg;
   while(ans != "OK"){
-    message incmsg, outmsg;
     outmsg << address;
     broker.send(outmsg);
     broker.receive(incmsg);
     incmsg >> ans;
   }
   cout << "Accepted by broker!" << endl;
+
+  while(ans != "OK"){
+    outmsg << address;
+    parent.send(outmsg);
+    parent.receive(incmsg);
+    incmsg >> ans;
+  }
+  // No orphan anymore :D
+  cout << "Accepted by parent!" << endl;
 }
 
 /**
@@ -79,9 +88,12 @@ void search_song(message &request, message &response) {
   response << "Not working yet";
 }
 
+void add_child(const string &identity, message &response) {
+  av_children.push_back(identity);
+  response << "OK";
+}
 
-void dispatch(message &incmsg, message &output) {
-
+void dispatch_client(message &incmsg, message &output) {
   // First frame in each message is the sender identity
   string identity;
   incmsg >> identity;
@@ -101,20 +113,43 @@ void dispatch(message &incmsg, message &output) {
     output << identity;
     return search_song(incmsg, output);
   }
+}
 
+void dispatch_child(message &request, message &response) {
+  string identity;
+  request >> identity;
+  if (identity.size() == 0)
+    return;
+
+  string command;
+  request >> command;
+  if (command == "add") {
+    response << identity;
+    return add_child(identity, response);
+  }
+
+  if (command == "search") {
+    request << identity;
+    return search_song(response, response);
+  }
 }
 
 int main(int argc, char** argv) {
   string client_endpoint = "tcp://*:",
-         address = "tcp://";
+         address = "tcp://",
+         parent_endpoint   = "tcp://",
+         children_endpoint = "tcp://*:";
 
-  if (argc == 3) {
-    int client_port = zen::ports::server_client + stoi(argv[2]);
+  if (argc == 4) {
+    int client_port   = zen::ports::server_client + stoi(argv[2]);
+    int children_port = zen::ports::server_server + stoi(argv[2]);
     client_endpoint += to_string(client_port);
     address  += argv[1] + string(":") + to_string(client_port);
+    parent_endpoint += argv[3];
+    children_endpoint += argv[1] + string(":") + to_string(children_port);
   } else {
-    cout << "Must provide an IP and id" << endl;
-    cout << "Usage : " << argv[0] << " ip id" << endl;
+    // cout << "Must provide an IP and id" << endl;
+    cout << "Usage : " << argv[0] << " ip id parent_ip" << endl;
     return 0;
   }
 
@@ -129,18 +164,37 @@ int main(int argc, char** argv) {
   client.set(socket_option::send_high_water_mark, PIPELINE * 2);
   client.bind(client_endpoint);
 
-  wake_up(broker, address);
+
+  socket children(context, socket_type::router);
+  children.bind(children_endpoint);
+
+  socket parent(context, socket_type::req);
+  parent.connect(parent_endpoint);
+
+  wake_up(broker, parent, address);
+
+  cout << "Listening for servers : " << children_endpoint << endl;
+  cout << "Listening for clients : " << client_endpoint << endl;
+  cout << "Connected to parent   : " << parent_endpoint << endl;
+  cout << "Connected to broker   : " << broker_endpoint << endl;
 
   poller poller;
   poller.add(client);
+  poller.add(children);
 
+  message request, response;
   while (true) {
     if (poller.poll()) {
       if (poller.has_input(client)) {
-        message incmsg, output;
-        client.receive(incmsg);
-        dispatch(incmsg, output);
-        client.send(output);
+        client.receive(request);
+        dispatch_client(request, response);
+        client.send(response);
+      }
+
+      if (poller.has_input(children)) {
+        children.receive(request);
+        dispatch_child(request, response);
+        children.send(response);
       }
     }
   }
