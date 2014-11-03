@@ -75,7 +75,7 @@ void search_for_song(socket &server, string song_name, string &dload_endpoint){
   outmsg << "search" << song_name;
   server.send(outmsg);
   server.receive(incmsg);
-    
+  incmsg >> dload_endpoint;
 }
 
 
@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
   string server_endpoint = "tcp://localhost:6666";
   string dload_endpoint = "tcp://localhost:6666";
   string song_name;
-  
+
   context context;
   socket broker(context, socket_type::req);
   broker.connect(broker_endpoint);
@@ -92,20 +92,18 @@ int main(int argc, char** argv) {
   ask_for_server(broker, server_endpoint);
   socket server(context, socket_type::dealer);
   server.connect(server_endpoint);
-  
-  socket dload(context, socket_type::dealer);
-  
 
-  while(true){
+  socket dload(context, socket_type::dealer);
+
+  while (true) {
     cout << "Welcome to Zen Music Quest!" << endl << endl;
     cout << "Type listen and the name of a song and then press enter:" << endl;
-   
-    
+
     cin >> song_name;
     getchar();
-    
+
     search_for_song(server, song_name, dload_endpoint);
-    
+
     if(dload_endpoint == "NF"){
       cout << "Song not found, sorry!" << endl << endl;
     }
@@ -113,10 +111,9 @@ int main(int argc, char** argv) {
       cout << "Your song will be here in no time!" << endl << endl;
       dload.connect(dload_endpoint);
       ask_for_song(dload, song_name);
+      system("mplayer output.mp3");
       dload.disconnect(dload_endpoint);
     }
-    
-    
   }
 
   return 0;

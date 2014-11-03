@@ -9,8 +9,14 @@
 using namespace std;
 using namespace zmqpp;
 
-const string music_path = "./Music";
-vector<string> av_children; // List of "below" servers.
+
+// begin server's state
+const string music_path   = "./Music";
+const string no_parent_id = "-1";
+string address;
+unordered_set<string> av_children;
+// end ss.
+
 
 bool search_file(string name){
   DIR* dirp = opendir(music_path.c_str());
@@ -42,7 +48,7 @@ void wake_up(socket &broker, string &address){
 void connect_parent(socket &parent) {
   string ans;
   message incmsg, outmsg;
-  while(ans != "OK"){
+  while (ans != "OK") {
     outmsg << "add";
     parent.send(outmsg);
     parent.receive(incmsg);
@@ -58,29 +64,23 @@ void connect_parent(socket &parent) {
  * */
 void send_song(message &request, message &response) {
   ifstream song;
-  // Third frame is song name
   string song_name;
   request >> song_name;
 
   if (search_file(song_name)){
     song.open(music_path +  "/" + song_name);
-    // Fourth frame is chunk offset in file
     size_t offset;
     request >> offset;
 
-    // Fifth frame is maximum chunk size
     size_t chunksz;
     request >> chunksz;
 
-    // Read chunk of data from file
     song.seekg(offset);
     char *data = (char *)malloc (chunksz);
     assert (data);
     song.read(data, chunksz);
 
-    size_t size = song.gcount();
-
-    string chunk(data, size);
+    string chunk(data, song.gcount());
     response << chunk;
     song.close();
   } else {
@@ -88,64 +88,81 @@ void send_song(message &request, message &response) {
   }
 }
 
-void search_song(message &request, message &response) {
-  response << "Not working yet";
+void search_song(socket &children, socket &parent, message &request, message &response, const string &parent_id) {
+  for (auto child : av_children) {
+    // TODO: perform search
+  }
+  if (parent_id != no_parent_id) {
+    // TODO: perform search in parent
+  }
+  response << address;
 }
 
 void add_child(const string &identity, message &response) {
-  av_children.push_back(identity);
-  response << "OK";
+  if (av_children.count(identity) == 0) {
+    av_children.insert(identity);
+    response << "OK";
+    cout << "Added new child with id " << identity << endl;
+  } else {
+    cout << "The child is already added" << endl;
+  }
 }
 
-void dispatch_client(message &incmsg, message &output) {
-  // First frame in each message is the sender identity
+void dispatch_client(socket &children, socket &parent, message &incmsg, message &output) {
   string identity;
   incmsg >> identity;
 
   if (identity.size() == 0)
     return; // Shutting down, quit
 
-  // Second frame is "fetch" command
   string command;
   incmsg >> command;
   if (command == "fetch") {
     output << identity;
     return send_song(incmsg, output);
   }
-
   if (command == "search") {
     output << identity;
-    return search_song(incmsg, output);
+    return search_song(children, parent, incmsg, output, identity);
   }
 }
 
-void dispatch_child(message &request, message &response) {
+void dispatch_child(socket &children, socket &parent, message &request, message &response) {
   string identity;
   request >> identity;
   if (identity.size() == 0)
     return;
-
   string command;
   request >> command;
-
   response << identity;
-
   if (command == "add") {
     add_child(identity, response);
     return;
   }
+  if (command == "search") {
+    search_song(children, parent, request, response, identity);
+    return;
+  }
+  // response with an empty message otherwise
+}
+
+
+
+void dispatch_parent(socket &children, socket &parent,message &request, message &response) {
+  string command;
+  request >> command;
 
   if (command == "search") {
-    search_song(response, response);
+    search_song(children, parent, request, response, no_parent_id);
     return;
   }
 }
 
 int main(int argc, char** argv) {
   string client_endpoint = "tcp://*:",
-         address = "tcp://",
          parent_endpoint   = "tcp://",
          children_endpoint = "tcp://*:";
+         address = "tcp://";
 
   if (argc == 4) {
     int client_port   = zen::ports::server_client + stoi(argv[2]);
@@ -190,19 +207,25 @@ int main(int argc, char** argv) {
   poller poller;
   poller.add(client);
   poller.add(children);
+  poller.add(parent);
 
   message request, response;
   while (true) {
     if (poller.poll()) {
       if (poller.has_input(client)) {
         client.receive(request);
-        dispatch_client(request, response);
+        dispatch_client(children, parent, request, response);
         client.send(response);
       }
       if (poller.has_input(children)) {
         children.receive(request);
-        dispatch_child(request, response);
+        dispatch_child(children, parent, request, response);
         children.send(response);
+      }
+      if (poller.has_input(parent)) {
+        parent.receive(request);
+        dispatch_parent(children, parent, request, response);
+        parent.send(response);
       }
     }
   }
