@@ -87,19 +87,19 @@ void search_for_song(socket &server, string song_name, string &dload_endpoint){
 
 void download_queue(string server_endpoint){
   //ofstream test("test.txt");
-  
+
   context ctx;
   string dload_endpoint = "";
-  
+
   socket server(ctx, socket_type::dealer);
   server.connect(server_endpoint);
-  
+
   socket dload(ctx, socket_type::dealer);
-  
+
   string song_name;
-  
+
   //cout << "here" << endl;
-  int song_num = 0; 
+  int song_num = 0;
   while(true){
     //test.open("test.txt");
     //test << playlist.size() << endl;
@@ -108,11 +108,11 @@ void download_queue(string server_endpoint){
     jesus = playlist.size();
     cool_mutex.unlock();
     if(jesus > 0){
-      
+
       cool_mutex.lock();
       song_name = playlist.front();
       playlist.pop();
-      cool_mutex.unlock();    
+      cool_mutex.unlock();
       search_for_song(server, song_name, dload_endpoint);
 
       if(dload_endpoint == "NF"){
@@ -121,7 +121,7 @@ void download_queue(string server_endpoint){
       else{
         cout << "Your song will be here in no time!" << endl << endl;
         dload.connect(dload_endpoint);
-        string outname = "song" + to_string(song_num) + ".ogg"; 
+        string outname = "song" + to_string(song_num) + ".ogg";
         ask_for_song(dload, song_name, outname);
         cool_mutex.lock();
         playqueue.push(outname);
@@ -135,7 +135,6 @@ void download_queue(string server_endpoint){
     }
     //test.close();
   }
-  
 }
 
 void play(){
@@ -144,7 +143,6 @@ void play(){
   int jesus;
   string god;
   while (true){
-  
     cool_mutex.lock();
     jesus = playqueue.size();
     cool_mutex.unlock();
@@ -163,11 +161,8 @@ void play(){
           cool_mutex.unlock();
         }
       }
-      
-      
-            
     }
-    //test.close(); 
+    //test.close();
   }
 }
 
@@ -182,38 +177,27 @@ int main(int argc, char** argv) {
   broker.connect(broker_endpoint);
 
   ask_for_server(broker, server_endpoint);
-  
-  
-  
+
   thread downloads(download_queue, server_endpoint);
-  thread playing(play); 
+  thread playing(play);
   downloads.detach();
   playing.detach();
-  
+
   string command = "";
   sf::Music music;
   while (command != "exit") {
     cout << "Welcome to Zen Music Quest!" << endl << endl;
     cout << "Type add and the name of a song to add it to your playlist:" << endl;
     cout << "Type del and the name of a song to remove it from your playlist:" << endl;
-
     cin >> command;
-    
-    
-   
     if(command == "add"){
       cin >> song_name;
       cool_mutex.lock();
       playlist.push(song_name);
       cool_mutex.unlock();
-      
-      cout << "added " << playlist.size() << endl; 
+      cout << "added " << playlist.size() << endl;
     }
-    
     getchar();
-    
   }
-  
-  
   return 0;
 }
