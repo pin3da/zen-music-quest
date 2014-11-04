@@ -13,6 +13,9 @@ Mainly we will use [ZMQ](http://zeromq.org/) to connect things, and [zmqpp](http
 
 
         aptitude install uuid-dev uuid-runtime uuid
+- [libsfml](http://www.sfml-dev.org/)
+ 
+        aptitude install libsfml-dev 
   
 ## Compile
 
