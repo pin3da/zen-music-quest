@@ -1,6 +1,7 @@
 #include <bits/stdc++.h>
 #include <zmqpp/zmqpp.hpp>
 #include <SFML/Audio.hpp>
+#include "utils.cc"
 
 #define PIPELINE 10
 const size_t CHUNK_SIZE = 250000;
@@ -78,7 +79,8 @@ void ask_for_song(socket &song_s, const string &song_name, string output = "outp
 
 void search_for_song(socket &server, string song_name, string &dload_endpoint){
   message outmsg, incmsg;
-  outmsg << "search" << song_name;
+  string uuid = gen_uuid();
+  outmsg << "search" << uuid << song_name;
   server.send(outmsg);
   server.receive(incmsg);
   incmsg >> dload_endpoint;
@@ -86,8 +88,6 @@ void search_for_song(socket &server, string song_name, string &dload_endpoint){
 
 
 void download_queue(string server_endpoint){
-  //ofstream test("test.txt");
-  
   context ctx;
   string dload_endpoint = "";
   
@@ -96,13 +96,11 @@ void download_queue(string server_endpoint){
   
   socket dload(ctx, socket_type::dealer);
   
-  string song_name;
+  string song_name;  
   
-  //cout << "here" << endl;
-  int song_num = 0; 
-  while(true){
-    //test.open("test.txt");
-    //test << playlist.size() << endl;
+  int song_num = 0;
+   
+  while(true){    
     int jesus = 0;
     cool_mutex.lock();
     jesus = playlist.size();
@@ -205,9 +203,8 @@ int main(int argc, char** argv) {
       cin >> song_name;
       cool_mutex.lock();
       playlist.push(song_name);
-      cool_mutex.unlock();
-      
-      cout << "added " << playlist.size() << endl; 
+      cool_mutex.unlock();      
+      cout << "added " << endl; 
     }
     
     getchar();
