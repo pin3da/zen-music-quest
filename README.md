@@ -9,6 +9,10 @@ Mainly we will use [ZMQ](http://zeromq.org/) to connect things, and [zmqpp](http
 ## Dependencies
 - [Install ZMQ](http://zeromq.org/intro:get-the-software)
 - [Install ZMQPP](http://zeromq.org/intro:get-the-software)
+- [libuud](http://linux.die.net/man/3/libuuid)
+
+
+        aptitude install uuid-dev uuid-runtime uuid
   
 ## Compile
 

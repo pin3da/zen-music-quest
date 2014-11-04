@@ -9,12 +9,23 @@
 using namespace std;
 using namespace zmqpp;
 
+const int MAX_DOWNLOADS = numeric_limits<int>::max() - 1;
+
+struct query{
+  string parent_id, address;
+  int parts, times;
+  bool is_client;
+  query() : parts(0), is_client(false){}
+  query(string _parent_id) : parent_id(_parent_id), address("NF"), parts(0), times(MAX_DOWNLOADS + 1) , is_client(false){}
+};
 
 // begin server's state
 const string music_path   = "./Music";
 const string no_parent_id = "-1";
 string address;
 unordered_set<string> av_children;
+unordered_map<string, query> queries;
+bool is_root;
 // end ss.
 
 
@@ -88,23 +99,47 @@ void send_song(message &request, message &response) {
   }
 }
 
-void search_song(socket &children, socket &parent, message &request, message &response, const string &parent_id) {
+void search_song(socket &children, socket &parent, message &request, message &response,
+    const string &parent_id) {
+  string uuid, song_name;
+  request >> uuid >> song_name;
+
+  if (queries.count(uuid) == 0) {
+    queries[uuid] = query(parent_id);
+    if (av_children.count(parent_id) == 0 and parent_id != no_parent_id) {
+      queries[uuid].is_client = true;
+    }
+  }
+
+  if (parent_id != no_parent_id and !is_root) {
+    message message;
+    message << "search" << uuid << song_name;
+    parent.send(message);
+  }
+
   for (auto child : av_children) {
-    // TODO: perform search
+    if (child != parent_id) {
+      message message;
+      message << child << "search" << uuid << song_name;
+      children.send(message);
+    }
   }
-  if (parent_id != no_parent_id) {
-    // TODO: perform search in parent
+
+  if (av_children.size() == 0 and parent_id == no_parent_id) { // leaf
+    if (search_file(song_name)) {
+      response << "found" << uuid << address << 1; // The 1 will be changed with the number of responses.
+    } else {
+      response << "found" << uuid << "NF" << MAX_DOWNLOADS;
+    }
+    queries.erase(uuid);
   }
-  response << address;
 }
 
 void add_child(const string &identity, message &response) {
   if (av_children.count(identity) == 0) {
     av_children.insert(identity);
     response << "OK";
-    cout << "Added new child with id " << identity << endl;
   } else {
-    cout << "The child is already added" << endl;
   }
 }
 
@@ -127,7 +162,64 @@ void dispatch_client(socket &children, socket &parent, message &incmsg, message 
   }
 }
 
-void dispatch_child(socket &children, socket &parent, message &request, message &response) {
+void notify_answer(socket &children, socket &parent, socket &client, string &uuid, const string &parent_id ) {
+  query &current = queries[uuid];
+
+  if (current.is_client) {
+    message message;
+    message << current.parent_id << current.address;
+    client.send(message);
+    return;
+  }
+
+  if (av_children.count(current.parent_id) == 0 and parent_id != no_parent_id) {
+      message message;
+      message << "found" << uuid << current.address << current.times;
+      parent.send(message);
+  } else {
+    message message;
+    message << current.parent_id << "found" << uuid << current.address << current.times;
+    children.send(message);
+  }
+}
+
+
+void process_answer(socket &children, socket &parent, socket &client, message &request, message & response,const string &identity) {
+    string uuid, answer;
+    int times = 0;
+    request >> uuid >> answer >> times;
+    query &current = queries[uuid];
+    current.parts++;
+    if (answer != "NF") {
+      if (current.times > times) {
+        current.address = answer;
+        current.times   = times;
+      }
+    } else {
+      current.times = MAX_DOWNLOADS;
+      current.address = "NF";
+    }
+
+    if (current.is_client) {
+      if (is_root) {
+        if ((size_t)current.parts == av_children.size())
+          notify_answer(children, parent, client, uuid, identity);
+      } else {
+        if ((size_t)current.parts == av_children.size() + 1)
+          notify_answer(children, parent, client, uuid, identity);
+      }
+    } else {
+      if (is_root) {
+        if ((size_t)current.parts == av_children.size() - 1)
+          notify_answer(children, parent, client, uuid, identity);
+      } else {
+        if ((size_t)current.parts == av_children.size())
+          notify_answer(children, parent, client, uuid, identity);
+      }
+    }
+}
+
+void dispatch_child(socket &children, socket &parent, socket &client, message &request, message &response) {
   string identity;
   request >> identity;
   if (identity.size() == 0)
@@ -143,12 +235,17 @@ void dispatch_child(socket &children, socket &parent, message &request, message 
     search_song(children, parent, request, response, identity);
     return;
   }
+
+  if (command == "found") {
+    process_answer(children, parent, client, request, response, identity);
+    return;
+  }
   // response with an empty message otherwise
 }
 
 
 
-void dispatch_parent(socket &children, socket &parent,message &request, message &response) {
+void dispatch_parent(socket &children, socket &parent, socket &client, message &request, message &response) {
   string command;
   request >> command;
 
@@ -156,6 +253,11 @@ void dispatch_parent(socket &children, socket &parent,message &request, message 
     search_song(children, parent, request, response, no_parent_id);
     return;
   }
+  if (command == "found") {
+    process_answer(children, parent, client, request, response, no_parent_id);
+    return;
+  }
+  // response with an empty message otherwise
 }
 
 int main(int argc, char** argv) {
@@ -163,6 +265,8 @@ int main(int argc, char** argv) {
          parent_endpoint   = "tcp://",
          children_endpoint = "tcp://*:";
          address = "tcp://";
+
+  is_root = true;
 
   if (argc == 4) {
     int client_port   = zen::ports::server_client + stoi(argv[2]);
@@ -195,6 +299,7 @@ int main(int argc, char** argv) {
   wake_up(broker, address);
   socket parent(context, socket_type::dealer);
   if (parent_endpoint != "tcp://localhost:4444") { // Root
+    is_root = false;
     parent.connect(parent_endpoint);
     connect_parent(parent);
   }
@@ -215,17 +320,20 @@ int main(int argc, char** argv) {
       if (poller.has_input(client)) {
         client.receive(request);
         dispatch_client(children, parent, request, response);
-        client.send(response);
+        if (response.parts())
+          client.send(response);
       }
       if (poller.has_input(children)) {
         children.receive(request);
-        dispatch_child(children, parent, request, response);
+        dispatch_child(children, parent, client, request, response);
         children.send(response);
       }
       if (poller.has_input(parent)) {
         parent.receive(request);
-        dispatch_parent(children, parent, request, response);
-        parent.send(response);
+        dispatch_parent(children, parent, client, request, response);
+        if (response.parts()) {
+          parent.send(response);
+        }
       }
     }
   }

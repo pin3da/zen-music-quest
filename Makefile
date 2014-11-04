@@ -1,6 +1,6 @@
 CC=g++
 FLAGS=-std=c++11 -O2 -Wall
-LDLIBS=-lzmqpp -lzmq -lpthread -lsfml-audio
+LDLIBS=-lzmqpp -lzmq -lpthread -lsfml-audio -luuid
 PTH=./src
 
 all: broker client server
