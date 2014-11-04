@@ -96,11 +96,10 @@ void download_queue(string server_endpoint){
   
   socket dload(ctx, socket_type::dealer);
   
-  string song_name;  
-  
-  int song_num = 0;
-   
-  while(true){    
+  string song_name;
+    
+  int song_num = 0; 
+  while(true){
     int jesus = 0;
     cool_mutex.lock();
     jesus = playlist.size();
@@ -131,13 +130,13 @@ void download_queue(string server_endpoint){
         }
       }
     }
-    //test.close();
+    
   }
   
 }
 
 void play(){
-  //ofstream test;
+  
   sf::Music music;
   int jesus;
   string god;
@@ -152,7 +151,7 @@ void play(){
       god = playqueue.front();
       holy = music.getStatus();
       cool_mutex.unlock();
-      //cout << god << "  " << holy << endl;
+      
       if(holy == 0){
         if(music.openFromFile(god)){
           music.play();
@@ -160,12 +159,10 @@ void play(){
           playqueue.pop();
           cool_mutex.unlock();
         }
-      }
-      
-      
+      }  
             
     }
-    //test.close(); 
+     
   }
 }
 
@@ -203,14 +200,16 @@ int main(int argc, char** argv) {
       cin >> song_name;
       cool_mutex.lock();
       playlist.push(song_name);
-      cool_mutex.unlock();      
-      cout << "added " << endl; 
+      cool_mutex.unlock();
+      
+      
     }
     
     getchar();
     
   }
   
-  
+  downloads.~thread();
+  playing.~thread();
   return 0;
 }
