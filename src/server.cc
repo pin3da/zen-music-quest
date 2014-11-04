@@ -104,14 +104,9 @@ void search_song(socket &children, socket &parent, message &request, message &re
   string uuid, song_name;
   request >> uuid >> song_name;
 
-  cout << "looking for " << song_name << " at " << uuid << endl;
-  cout << "av_children : " << av_children.size() << endl;
-
   if (queries.count(uuid) == 0) {
-    cout << "Regis " << uuid << endl;
     queries[uuid] = query(parent_id);
     if (av_children.count(parent_id) == 0 and parent_id != no_parent_id) {
-      cout << "Getting request from client" << endl;
       queries[uuid].is_client = true;
     }
   }
@@ -119,23 +114,18 @@ void search_song(socket &children, socket &parent, message &request, message &re
   if (parent_id != no_parent_id and !is_root) {
     message message;
     message << "search" << uuid << song_name;
-    cout << "Sending message " << uuid << " to parent" << endl;
     parent.send(message);
-    cout << "Sent message to parent" << endl;
   }
 
   for (auto child : av_children) {
     if (child != parent_id) {
       message message;
       message << child << "search" << uuid << song_name;
-      cout << "Sending message " << uuid <<" to " << child << endl;
       children.send(message);
-      cout << "Sent message to child" << endl;
     }
   }
 
   if (av_children.size() == 0 and parent_id == no_parent_id) { // leaf
-    cout << "Resolve locally bc i'm cool" << endl;
     if (search_file(song_name)) {
       response << "found" << uuid << address << 1; // The 1 will be changed with the number of responses.
     } else {
@@ -149,9 +139,7 @@ void add_child(const string &identity, message &response) {
   if (av_children.count(identity) == 0) {
     av_children.insert(identity);
     response << "OK";
-    cout << "Added new child with id " << identity << endl;
   } else {
-    cout << "The child is already added" << endl;
   }
 }
 
@@ -177,9 +165,7 @@ void dispatch_client(socket &children, socket &parent, message &incmsg, message 
 void notify_answer(socket &children, socket &parent, socket &client, string &uuid, const string &parent_id ) {
   query &current = queries[uuid];
 
-  cout << "Is client : " << current.is_client << endl;
   if (current.is_client) {
-    cout << "Notify client with best answer" << endl;
     message message;
     message << current.parent_id << current.address;
     client.send(message);
@@ -187,12 +173,10 @@ void notify_answer(socket &children, socket &parent, socket &client, string &uui
   }
 
   if (av_children.count(current.parent_id) == 0 and parent_id != no_parent_id) {
-      cout << "Notify parent with best answer" << endl;
       message message;
       message << "found" << uuid << current.address << current.times;
       parent.send(message);
   } else {
-    cout << "Notify child " << current.parent_id << " with the best answer" << endl;
     message message;
     message << current.parent_id << "found" << uuid << current.address << current.times;
     children.send(message);
@@ -207,8 +191,6 @@ void process_answer(socket &children, socket &parent, socket &client, message &r
     query &current = queries[uuid];
     current.parts++;
     if (answer != "NF") {
-      cout << identity << " says : " << answer << " " << times << endl;
-
       if (current.times > times) {
         current.address = answer;
         current.times   = times;
@@ -216,7 +198,6 @@ void process_answer(socket &children, socket &parent, socket &client, message &r
     } else {
       current.times = MAX_DOWNLOADS;
       current.address = "NF";
-      cout << "child did not found anything" << endl;
     }
 
     if (current.is_client) {
@@ -259,7 +240,6 @@ void dispatch_child(socket &children, socket &parent, socket &client, message &r
     process_answer(children, parent, client, request, response, identity);
     return;
   }
-  cout << "I don't know what to say" << endl;
   // response with an empty message otherwise
 }
 
@@ -277,7 +257,6 @@ void dispatch_parent(socket &children, socket &parent, socket &client, message &
     process_answer(children, parent, client, request, response, no_parent_id);
     return;
   }
-  cout << "I don't know what to say" << endl;
   // response with an empty message otherwise
 }
 
@@ -353,9 +332,7 @@ int main(int argc, char** argv) {
         parent.receive(request);
         dispatch_parent(children, parent, client, request, response);
         if (response.parts()) {
-          cout << "answer found and set to the parent" << endl;
           parent.send(response);
-          cout << "Really, I do" << endl;
         }
       }
     }
