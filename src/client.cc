@@ -1,6 +1,8 @@
 #include <bits/stdc++.h>
 #include <zmqpp/zmqpp.hpp>
 
+#include "utils.cc"
+
 #define PIPELINE 10
 const size_t CHUNK_SIZE = 250000;
 
@@ -72,7 +74,9 @@ void ask_for_song(socket &song_s, const string &song_name, string output = "outp
 
 void search_for_song(socket &server, string song_name, string &dload_endpoint){
   message outmsg, incmsg;
-  outmsg << "search" << song_name;
+  string uuid = gen_uuid();
+  cout << uuid << endl;
+  outmsg << "search" << uuid << song_name;
   server.send(outmsg);
   server.receive(incmsg);
   incmsg >> dload_endpoint;
@@ -110,6 +114,7 @@ int main(int argc, char** argv) {
     else{
       cout << "Your song will be here in no time!" << endl << endl;
       dload.connect(dload_endpoint);
+      cout << "Downloading from " << dload_endpoint << endl;
       ask_for_song(dload, song_name);
       system("mplayer output.mp3");
       dload.disconnect(dload_endpoint);

@@ -1,3 +1,5 @@
+#include <uuid/uuid.h>
+#include <bits/stdc++.h>
 
 namespace zen {
   namespace ports {
@@ -6,4 +8,12 @@ namespace zen {
     int boker_server  = 6668;
     int broker_client = 6667;
   }
+}
+
+std::string gen_uuid() {
+  uuid_t uuid;
+  uuid_generate(uuid);
+  char tmp[50];
+  uuid_unparse(uuid, tmp);
+  return std::string(tmp);
 }

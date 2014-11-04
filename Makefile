@@ -1,6 +1,6 @@
 CC=g++
 FLAGS=-std=c++11 -O2 -Wall
-LDLIBS=-lzmqpp -lzmq
+LDLIBS=-lzmqpp -lzmq -luuid
 PTH=./src
 
 all: broker client server
