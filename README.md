@@ -12,7 +12,7 @@ Mainly we will use [ZMQ](http://zeromq.org/) to connect things, and [zmqpp](http
 - [libuud](http://linux.die.net/man/3/libuuid)
 
 
-    aptitude install uuid-dev uuid-runtime uuid
+        aptitude install uuid-dev uuid-runtime uuid
   
 ## Compile
 
