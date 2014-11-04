@@ -12,7 +12,8 @@ using namespace zmqpp;
 mutex cool_mutex;
 
 queue<string> playlist;
-queue<string> playqueue;
+vector<string> playqueue;
+char player_cmd = 'c';
 
 /**
  * Example taken of : http://zguide.zeromq.org/c:fileio3
@@ -121,7 +122,7 @@ void download_queue(string server_endpoint){
         string outname = "song" + to_string(song_num) + ".ogg"; 
         ask_for_song(dload, song_name, outname);
         cool_mutex.lock();
-        playqueue.push(outname);
+        playqueue.push_back(outname);
         cool_mutex.unlock();
         dload.disconnect(dload_endpoint);
         song_num++;
@@ -138,28 +139,62 @@ void download_queue(string server_endpoint){
 void play(){
   
   sf::Music music;
+  int s_counter = 0;
   int jesus;
   string god;
+  char cmd = 'c';
   while (true){
   
     cool_mutex.lock();
     jesus = playqueue.size();
+    cmd = player_cmd;
     cool_mutex.unlock();
-    if(jesus > 0){
-      int holy = 0;
+    
+    if(cmd == 's'){
+      music.stop();
+      s_counter--;
       cool_mutex.lock();
-      god = playqueue.front();
-      holy = music.getStatus();
+      player_cmd = 'z';
       cool_mutex.unlock();
       
-      if(holy == 0){
+    }
+    
+    else if(cmd == 'n'){
+      music.stop();
+      if(s_counter > jesus - 1 and jesus > 0)
+        s_counter = jesus - 1;
+      cool_mutex.lock();
+      player_cmd = 'c';
+      cool_mutex.unlock();
+      
+      
+    }
+    else if(cmd == 'p'){
+      music.stop();
+      s_counter = s_counter - 2;
+      if(s_counter < 0)
+        s_counter = 0;
+      cool_mutex.lock();
+      player_cmd = 'c';
+      cool_mutex.unlock();
+    }
+  
+    if(s_counter < jesus){
+      int holy = 0;
+      
+      cool_mutex.lock();
+      god = playqueue[s_counter];
+      holy = music.getStatus();
+      
+      cool_mutex.unlock();
+      //cout << cmd << endl;
+      if(holy == 0 and cmd == 'c'){
         if(music.openFromFile(god)){
           music.play();
-          cool_mutex.lock();
-          playqueue.pop();
-          cool_mutex.unlock();
+          s_counter++;
         }
-      }  
+      }
+         
             
     }
      
@@ -189,13 +224,11 @@ int main(int argc, char** argv) {
   sf::Music music;
   while (command != "exit") {
     cout << "Welcome to Zen Music Quest!" << endl << endl;
-    cout << "Type add and the name of a song to add it to your playlist:" << endl;
-    cout << "Type del and the name of a song to remove it from your playlist:" << endl;
-
+    cout << "Type add and the name of a song to add it to your playlist or:" << endl;
+    cout << "Type next to skip a song and prev to hear the previous one" << endl;
+    cout << "Type stop to stop playing music, or play to start playing" << endl;
     cin >> command;
     
-    
-   
     if(command == "add"){
       cin >> song_name;
       cool_mutex.lock();
@@ -204,6 +237,30 @@ int main(int argc, char** argv) {
       
       
     }
+    
+    if(command == "next"){      
+      cool_mutex.lock();
+      player_cmd = 'n';
+      cool_mutex.unlock();      
+    }
+    
+    if(command == "stop"){
+      cool_mutex.lock();
+      player_cmd = 's';
+      cool_mutex.unlock();
+    }
+    
+    if(command == "prev"){      
+      cool_mutex.lock();
+      player_cmd = 'p';
+      cool_mutex.unlock();      
+    } 
+    
+    if(command == "play"){
+      cool_mutex.lock();
+      player_cmd = 'c';
+      cool_mutex.unlock();
+    }   
     
     getchar();
     
