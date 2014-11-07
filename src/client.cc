@@ -44,9 +44,9 @@ void ask_for_song(socket &song_s, const string &song_name, string output = "outp
   size_t total  = 0; // Total bytes received
   size_t chunks = 0; // Total chunks received
   size_t offset = 0; // Offset of next chunk request
-  
+
   system("exec mkdir -p tmp");
-  
+
   ofstream song("tmp/" + output);
 
   while (true) {
@@ -94,51 +94,44 @@ void search_for_song(socket &server, string song_name, string &dload_endpoint){
 void download_queue(string server_endpoint){
   context ctx;
   string dload_endpoint = "";
-  
   socket server(ctx, socket_type::dealer);
   server.connect(server_endpoint);
-  
   socket dload(ctx, socket_type::dealer);
-  
   string song_name;
-    
-  int song_num = 0; 
-  while(true){
-    int jesus = 0;
+  int song_num = 0;
+  while (true) {
+    int pl_size = 0;
     cool_mutex.lock();
-    jesus = playlist.size();
+    pl_size = playlist.size();
     cool_mutex.unlock();
-    if(jesus > 0){
-      
+    if (pl_size > 0) {
       cool_mutex.lock();
       song_name = playlist.front();
       playlist.pop_front();
-      cool_mutex.unlock();    
+      cool_mutex.unlock();
       search_for_song(server, song_name, dload_endpoint);
 
-      if(dload_endpoint == "NF"){
+      if (dload_endpoint == "NF") {
         cout << "Song not found, sorry!" << endl << endl;
-      }
-      else{
+      } else {
         cout << "Your song will be here in no time!" << endl << endl;
         dload.connect(dload_endpoint);
-        string outname = "song" + to_string(song_num) + ".ogg"; 
+        string outname = "song" + to_string(song_num) + ".ogg";
         ask_for_song(dload, song_name, outname);
         cool_mutex.lock();
         playqueue[song_num] = {song_name, outname};
         cool_mutex.unlock();
         dload.disconnect(dload_endpoint);
         song_num++;
-        if (song_num > 500){
+        if (song_num > 500) {
           song_num = 0;
         }
       }
-    }    
-  }  
+    }
+  }
 }
 
 void play(){
-  
   sf::Music music;
   int s_counter = 0;
   int player_status = 0;
@@ -146,90 +139,83 @@ void play(){
   string song_name = "";
   string outname = "";
   char cmd = 'c';
-  while (true){
-  
+  while (true) {
     cool_mutex.lock();
     queue_size = playqueue.size();
     cmd = player_cmd;
     cool_mutex.unlock();
-    
-    if(cmd == 's'){
+
+    if (cmd == 's') {
       music.stop();
       if(s_counter > 0)
         s_counter--;
       cool_mutex.lock();
       player_cmd = 'z';
-      cool_mutex.unlock();       
-    }
-    
-    else if(cmd == 'n'){
+      cool_mutex.unlock();
+    } else if (cmd == 'n') {
       music.stop();
-      if((s_counter > queue_size - 1 and queue_size > 0))
+      if ((s_counter > queue_size - 1 and queue_size > 0))
         s_counter = queue_size - 1;
-      cool_mutex.lock(); 
+      cool_mutex.lock();
       if (playqueue[s_counter].second == "*DEL*" and s_counter > queue_size - 1)
-        s_counter--;     
+        s_counter--;
       player_cmd = 'c';
       cool_mutex.unlock();
-      
-      
-    }
-    else if(cmd == 'p'){
+    } else if (cmd == 'p') {
       music.stop();
       s_counter = s_counter - 2;
-      if(s_counter < 0)
+      if (s_counter < 0)
         s_counter = 0;
       cool_mutex.lock();
-      if(playqueue[s_counter].second != "*DEL*" or s_counter == 0)
+      if (playqueue[s_counter].second != "*DEL*" or s_counter == 0)
         player_cmd = 'c';
       cool_mutex.unlock();
     }
-  
-    if(s_counter < queue_size and cmd == 'c'){
+
+    if (s_counter < queue_size and cmd == 'c') {
       cool_mutex.lock();
       outname = playqueue[s_counter].second;
       song_name = playqueue[s_counter].first;
-      player_status = music.getStatus();      
+      player_status = music.getStatus();
       cool_mutex.unlock();
-      
-      if(player_status == 0 ){
-        if(outname == "*DEL*" ){
+
+      if (player_status == 0 ) {
+        if (outname == "*DEL*" ) {
           s_counter ++;
-        }
-        else if(music.openFromFile("tmp/" + outname)){
+        } else if (music.openFromFile("tmp/" + outname)) {
           cout << "------------------------" << endl;
           cout << "Now playing: " << song_name << endl;
           cout << "------------------------" << endl;
           music.play();
           s_counter++;
-        }        
-      }            
-    }    
+        }
+      }
+    }
   }
 }
 
 void delete_song(string song_name){
   if (song_name == "adver"){
-    cout << "You sneaky little bastard, trying to erase advertising ¬¬" << endl;
+    cout << "Very clever my dear Watson."<< endl;
     return;
   }
-  
-  for(unsigned int i = 0; i < playlist.size(); i++){
-    if(playlist[i] == song_name){
+
+  for (unsigned int i = 0; i < playlist.size(); i++) {
+    if (playlist[i] == song_name) {
       playlist.erase(playlist.begin() + i);
       return;
     }
-  }  
-  
-  for (unsigned int i = 0; i < playqueue.size(); i++){
-    if(playqueue[i].first == song_name){
+  }
+
+  for (unsigned int i = 0; i < playqueue.size(); i++) {
+    if (playqueue[i].first == song_name) {
       string command = "exec rm -f tmp/" + playqueue[i].second;
       system(command.c_str());
-      playqueue[i].second = "*DEL*";     
+      playqueue[i].second = "*DEL*";
     }
   }
   return;
-  
+
 }
 
 int main(int argc, char** argv) {
@@ -243,14 +229,12 @@ int main(int argc, char** argv) {
   broker.connect(broker_endpoint);
 
   ask_for_server(broker, server_endpoint);
-  
-  
-  
+
   thread downloads(download_queue, server_endpoint);
-  thread playing(play); 
+  thread playing(play);
   downloads.detach();
   playing.detach();
-  
+
   string command = "";
   //sf::Music music;
   int adv_counter = 0;
@@ -262,8 +246,8 @@ int main(int argc, char** argv) {
     cout << "Type next to skip a song and prev to hear the previous one" << endl;
     cout << "Type stop to stop playing music, or play to start playing" << endl;
     cin >> command;
-    
-    if(command == "add"){
+
+    if (command == "add") {
       adv_counter++;
       cin >> song_name;
       cool_mutex.lock();
@@ -274,49 +258,41 @@ int main(int argc, char** argv) {
         adv_counter = 0;
       }*/
       cool_mutex.unlock();
-      
-      
     }
-    
-    if(command == "next"){      
+
+    if (command == "next") {
       cool_mutex.lock();
       player_cmd = 'n';
-      cool_mutex.unlock();      
+      cool_mutex.unlock();
     }
-    
-    if(command == "stop"){
+
+    if (command == "stop") {
       cool_mutex.lock();
       player_cmd = 's';
       cool_mutex.unlock();
     }
-    
-    if(command == "prev"){      
+
+    if (command == "prev") {
       cool_mutex.lock();
       player_cmd = 'p';
-      cool_mutex.unlock();      
-    } 
-    
-    if(command == "play"){
+      cool_mutex.unlock();
+    }
+
+    if (command == "play") {
       cool_mutex.lock();
       player_cmd = 'c';
       cool_mutex.unlock();
-    }   
-    
-    if (command == "del"){
-      
+    }
+
+    if (command == "del") {
       cin >> song_name;
-      cool_mutex.lock(); 
+      cool_mutex.lock();
       delete_song(song_name);
       cool_mutex.unlock();
-           
     }
-    
     getchar();
-    
-    
-    
   }
-  
+
   system("exec rm -rf tmp");
   downloads.~thread();
   playing.~thread();
