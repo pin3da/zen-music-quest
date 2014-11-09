@@ -37,7 +37,7 @@ void ask_for_server(socket &broker, string &song_endpoint) {
   cout << "I know where to connect to " << song_endpoint << endl;
 }
 
-void ask_for_song(socket &song_s, const string &song_name, string output = "output.mp3") {
+void ask_for_song(socket &song_s, const string &song_name, string output = "output.mp3", bool is_adver = false) {
   // Up to this many chunks in transit
   size_t credit = PIPELINE;
 
@@ -53,7 +53,11 @@ void ask_for_song(socket &song_s, const string &song_name, string output = "outp
     while (credit) {
       // Ask for next chunk
       message message;
-      message << "fetch" << song_name << offset << CHUNK_SIZE;
+      if(is_adver){
+        message << "fetch" << "adver" << song_name << offset << CHUNK_SIZE;
+      }else{
+        message << "fetch" << song_name << offset << CHUNK_SIZE;
+      }
       song_s.send(message);
       offset += CHUNK_SIZE;
       credit--;
@@ -77,7 +81,7 @@ void ask_for_song(socket &song_s, const string &song_name, string output = "outp
       break; // Last chunk received; exit
   }
 
-  printf("%zd chunks received, %zd bytes\n", chunks, total);
+  //printf("%zd chunks received, %zd bytes\n", chunks, total);
   song.close();
 }
 
@@ -88,6 +92,18 @@ void search_for_song(socket &server, string song_name, string &dload_endpoint){
   server.send(outmsg);
   server.receive(incmsg);
   incmsg >> dload_endpoint;
+  while(dload_endpoint == ""){
+    server.receive(incmsg);
+    incmsg >> dload_endpoint;
+  }
+}
+
+void ask_for_adver(socket &server, string &adver_name){
+  message outmsg, incmsg;
+  outmsg << "adver";
+  server.send(outmsg);
+  server.receive(incmsg);
+  incmsg >> adver_name;
 }
 
 
@@ -109,23 +125,40 @@ void download_queue(string server_endpoint){
       song_name = playlist.front();
       playlist.pop_front();
       cool_mutex.unlock();
-      search_for_song(server, song_name, dload_endpoint);
-
-      if (dload_endpoint == "NF") {
-        cout << "Song not found, sorry!" << endl << endl;
-      } else {
-        cout << "Your song will be here in no time!" << endl << endl;
-        dload.connect(dload_endpoint);
-        string outname = "song" + to_string(song_num) + ".ogg";
-        ask_for_song(dload, song_name, outname);
-        cool_mutex.lock();
-        playqueue[song_num] = {song_name, outname};
-        cool_mutex.unlock();
-        dload.disconnect(dload_endpoint);
-        song_num++;
-        if (song_num > 500) {
-          song_num = 0;
+      string outname = "song" + to_string(song_num) + ".ogg";
+      if(song_name == "adver"){
+        ask_for_adver(server, song_name);
+        if(song_name!= "NF"){
+          ask_for_song(server, song_name, outname, true);
+          cool_mutex.lock();
+          playqueue[song_num] = {"adver", outname};
+          cool_mutex.unlock();
+          song_num++;
+          if (song_num > 500) 
+            song_num = 0;
         }
+                
+        //cout << "after ask_for_adver: " << song_name << endl;
+      } else{
+        search_for_song(server, song_name, dload_endpoint);
+        cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
+        if (dload_endpoint == "NF" or dload_endpoint == "") {
+          cout << "Song not found, sorry!" << endl;
+        } else {
+          cout << "Your song will be here in no time!" << endl;
+          dload.connect(dload_endpoint);
+          
+          ask_for_song(dload, song_name, outname);
+          cool_mutex.lock();
+          playqueue[song_num] = {song_name, outname};
+          cool_mutex.unlock();
+          dload.disconnect(dload_endpoint);
+          song_num++;
+          if (song_num > 500) {
+            song_num = 0;
+          }
+        }
+         cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
       }
     }
   }
@@ -153,12 +186,15 @@ void play(){
       player_cmd = 'z';
       cool_mutex.unlock();
     } else if (cmd == 'n') {
-      music.stop();
-      if ((s_counter > queue_size - 1 and queue_size > 0))
-        s_counter = queue_size - 1;
       cool_mutex.lock();
-      if (playqueue[s_counter].second == "*DEL*" and s_counter > queue_size - 1)
-        s_counter--;
+      if(playqueue[s_counter - 1].first != "adver"){
+        music.stop();
+        if ((s_counter > queue_size - 1 and queue_size > 0))
+          s_counter = queue_size - 1;
+        
+        if (playqueue[s_counter].second == "*DEL*" and s_counter > queue_size - 1)
+          s_counter--;        
+      }
       player_cmd = 'c';
       cool_mutex.unlock();
     } else if (cmd == 'p') {
@@ -253,10 +289,10 @@ int main(int argc, char** argv) {
       cool_mutex.lock();
       playlist.push_back(song_name);
       cout << playlist.front()<< endl;
-      /*if(adv_counter > 4){
+      if(adv_counter > 3){
         playlist.push_back("adver");
         adv_counter = 0;
-      }*/
+      }
       cool_mutex.unlock();
     }
 

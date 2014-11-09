@@ -20,17 +20,19 @@ struct query{
 };
 
 // begin server's state
-const string music_path   = "./Music";
+const string music_path = "./Music";
+const string adver_path = "./adver";
 const string no_parent_id = "-1";
 string address;
+vector<string> adver_names;
 unordered_set<string> av_children;
 unordered_map<string, query> queries;
 bool is_root;
 // end ss.
 
 
-bool search_file(string name){
-  DIR* dirp = opendir(music_path.c_str());
+bool search_file(string name, string search_path){
+  DIR* dirp = opendir(search_path.c_str());
   dirent* dp;
   if (dirp != NULL) {
     while ((dp = readdir(dirp) )!= NULL) {
@@ -43,6 +45,25 @@ bool search_file(string name){
   return false;
 }
 
+bool fill_adver_names(){
+  DIR* dirp = opendir(adver_path.c_str());
+  dirent* dp;
+  if (dirp != NULL) {
+    while ((dp = readdir(dirp) )!= NULL) {
+      if(strlen(dp->d_name) > 4)
+        adver_names.push_back(dp->d_name);      
+    }
+  }
+  /*for(int i = 0; i < adver_names.size(); i++){
+    cout << "***" << adver_names[i] << "***" << endl;
+  }*/
+  if(adver_names.size() > 0){
+    return true;
+  } else{
+    return false;
+  }
+  
+}
 
 void wake_up(socket &broker, string &address){
   string ans;
@@ -54,6 +75,8 @@ void wake_up(socket &broker, string &address){
     incmsg >> ans;
   }
   cout << "Accepted by broker!" << endl;
+  if(fill_adver_names())
+    cout << "Added advertising!" << endl;
 }
 
 void connect_parent(socket &parent) {
@@ -76,10 +99,16 @@ void connect_parent(socket &parent) {
 void send_song(message &request, message &response) {
   ifstream song;
   string song_name;
+  string search_path = music_path;
   request >> song_name;
+  
+  if(song_name == "adver"){
+    request >> song_name;
+    search_path = adver_path;
+  }
 
-  if (search_file(song_name)){
-    song.open(music_path +  "/" + song_name);
+  if (search_file(song_name, search_path)){
+    song.open(search_path +  "/" + song_name);
     size_t offset;
     request >> offset;
 
@@ -97,6 +126,18 @@ void send_song(message &request, message &response) {
   } else {
     response << "NF";
   }
+}
+
+void send_adver_name(message &outmsg){
+  int adver_sel = 0;
+  srand(time(NULL));
+  if(adver_names.size() > 0){
+    adver_sel = rand() % adver_names.size();
+    outmsg << adver_names[adver_sel]; 
+  } else{
+    outmsg << "NF";
+  }
+  
 }
 
 void search_song(socket &children, socket &parent, message &request, message &response,
@@ -126,7 +167,7 @@ void search_song(socket &children, socket &parent, message &request, message &re
   }
 
   if (av_children.size() == 0 and parent_id == no_parent_id) { // leaf
-    if (search_file(song_name)) {
+    if (search_file(song_name, music_path)) {
       response << "found" << uuid << address << 1; // The 1 will be changed with the number of responses.
     } else {
       response << "found" << uuid << "NF" << MAX_DOWNLOADS;
@@ -159,6 +200,10 @@ void dispatch_client(socket &children, socket &parent, message &incmsg, message 
   if (command == "search") {
     output << identity;
     return search_song(children, parent, incmsg, output, identity);
+  }
+  if (command == "adver"){
+    output << identity;
+    return send_adver_name(output);
   }
 }
 
