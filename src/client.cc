@@ -203,8 +203,10 @@ void play(){
       if (s_counter < 0)
         s_counter = 0;
       cool_mutex.lock();
-      if (playqueue[s_counter].second != "*DEL*" or s_counter == 0)
-        player_cmd = 'c';
+      while (playqueue[s_counter].second == "*DEL*" and s_counter > 0){
+        s_counter--;
+      }
+      player_cmd = 'c';
       cool_mutex.unlock();
     }
 
@@ -288,7 +290,7 @@ int main(int argc, char** argv) {
       cin >> song_name;
       cool_mutex.lock();
       playlist.push_back(song_name);
-      cout << playlist.front()<< endl;
+      //cout << playlist.front()<< endl;
       if(adv_counter > 3){
         playlist.push_back("adver");
         adv_counter = 0;
