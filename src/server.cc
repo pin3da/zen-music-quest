@@ -23,11 +23,13 @@ struct query{
 const string music_path = "./Music";
 const string adver_path = "./adver";
 const string no_parent_id = "-1";
+bool is_root;
+int relaxing_time = 100;  // time to relax before solve the next query.
 string address;
 vector<string> adver_names;
 unordered_set<string> av_children;
 unordered_map<string, query> queries;
-bool is_root;
+unordered_map<string, int> solved_queries;
 // end ss.
 
 
@@ -51,7 +53,7 @@ bool fill_adver_names(){
   if (dirp != NULL) {
     while ((dp = readdir(dirp) )!= NULL) {
       if(strlen(dp->d_name) > 4)
-        adver_names.push_back(dp->d_name);      
+        adver_names.push_back(dp->d_name);
     }
   }
   /*for(int i = 0; i < adver_names.size(); i++){
@@ -62,13 +64,13 @@ bool fill_adver_names(){
   } else{
     return false;
   }
-  
+
 }
 
 void wake_up(socket &broker, string &address){
   string ans;
   message incmsg, outmsg;
-  while(ans != "OK"){
+  while (ans != "OK") {
     outmsg << address;
     broker.send(outmsg);
     broker.receive(incmsg);
@@ -92,6 +94,11 @@ void connect_parent(socket &parent) {
   cout << "Accepted by parent!" << endl;
 }
 
+void replicate() {
+  // Cool async stuff begins here
+}
+
+
 /**
  *  send_song : Must be called after a "fetch" request is performed.
  *     Read from third frame : song_name
@@ -101,7 +108,7 @@ void send_song(message &request, message &response) {
   string song_name;
   string search_path = music_path;
   request >> song_name;
-  
+
   if(song_name == "adver"){
     request >> song_name;
     search_path = adver_path;
@@ -120,6 +127,14 @@ void send_song(message &request, message &response) {
     assert (data);
     song.read(data, chunksz);
 
+    if (song.gcount() < chunksz) { // Last block to send
+      solved_queries[song_name]++;
+      if (solved_queries[song_name] == MAX_DOWNLOADS) {
+        replicate();  // cool async stuff
+        solved_queries[song_name] = relaxing_time;
+      }
+    }
+
     string chunk(data, song.gcount());
     response << chunk;
     song.close();
@@ -131,13 +146,13 @@ void send_song(message &request, message &response) {
 void send_adver_name(message &outmsg){
   int adver_sel = 0;
   srand(time(NULL));
-  if(adver_names.size() > 0){
+  if (adver_names.size() > 0) {
     adver_sel = rand() % adver_names.size();
-    outmsg << adver_names[adver_sel]; 
+    outmsg << adver_names[adver_sel];
   } else{
     outmsg << "NF";
   }
-  
+
 }
 
 void search_song(socket &children, socket &parent, message &request, message &response,
@@ -168,7 +183,7 @@ void search_song(socket &children, socket &parent, message &request, message &re
 
   if (av_children.size() == 0 and parent_id == no_parent_id) { // leaf
     if (search_file(song_name, music_path)) {
-      response << "found" << uuid << address << 1; // The 1 will be changed with the number of responses.
+      response << "found" << uuid << address << solved_queries[song_name]; // The 1 will be changed with the number of responses.
     } else {
       response << "found" << uuid << "NF" << MAX_DOWNLOADS;
     }
@@ -181,6 +196,7 @@ void add_child(const string &identity, message &response) {
     av_children.insert(identity);
     response << "OK";
   } else {
+    cout << "This child was already added" << endl;
   }
 }
 

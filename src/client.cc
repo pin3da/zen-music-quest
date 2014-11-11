@@ -53,9 +53,9 @@ void ask_for_song(socket &song_s, const string &song_name, string output = "outp
     while (credit) {
       // Ask for next chunk
       message message;
-      if(is_adver){
+      if (is_adver) {
         message << "fetch" << "adver" << song_name << offset << CHUNK_SIZE;
-      }else{
+      } else {
         message << "fetch" << song_name << offset << CHUNK_SIZE;
       }
       song_s.send(message);
@@ -134,10 +134,10 @@ void download_queue(string server_endpoint){
           playqueue[song_num] = {"adver", outname};
           cool_mutex.unlock();
           song_num++;
-          if (song_num > 500) 
+          if (song_num > 500)
             song_num = 0;
         }
-                
+
         //cout << "after ask_for_adver: " << song_name << endl;
       } else{
         search_for_song(server, song_name, dload_endpoint);
@@ -147,7 +147,7 @@ void download_queue(string server_endpoint){
         } else {
           cout << "Your song will be here in no time!" << endl;
           dload.connect(dload_endpoint);
-          
+
           ask_for_song(dload, song_name, outname);
           cool_mutex.lock();
           playqueue[song_num] = {song_name, outname};
@@ -187,13 +187,13 @@ void play(){
       cool_mutex.unlock();
     } else if (cmd == 'n') {
       cool_mutex.lock();
-      if(playqueue[s_counter - 1].first != "adver"){
+      if (playqueue[s_counter - 1].first != "adver") {
         music.stop();
         if ((s_counter > queue_size - 1 and queue_size > 0))
           s_counter = queue_size - 1;
-        
+
         if (playqueue[s_counter].second == "*DEL*" and s_counter > queue_size - 1)
-          s_counter--;        
+          s_counter--;
       }
       player_cmd = 'c';
       cool_mutex.unlock();
