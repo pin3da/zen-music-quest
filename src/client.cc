@@ -175,57 +175,61 @@ void play(){
   while (true) {
     cool_mutex.lock();
     queue_size = playqueue.size();
-    cmd = player_cmd;
     cool_mutex.unlock();
-
-    if (cmd == 's') {
-      music.stop();
-      if(s_counter > 0)
-        s_counter--;
+    
+    if (queue_size > 0){
       cool_mutex.lock();
-      player_cmd = 'z';
+      cmd = player_cmd;
       cool_mutex.unlock();
-    } else if (cmd == 'n') {
-      cool_mutex.lock();
-      if(playqueue[s_counter - 1].first != "adver"){
+      if (cmd == 's') {
         music.stop();
-        if ((s_counter > queue_size - 1 and queue_size > 0))
-          s_counter = queue_size - 1;
-        
-        if (playqueue[s_counter].second == "*DEL*" and s_counter > queue_size - 1)
-          s_counter--;        
+        if(s_counter > 0)
+          s_counter--;
+        cool_mutex.lock();
+        player_cmd = 'z';
+        cool_mutex.unlock();
+      } else if (cmd == 'n') {
+        cool_mutex.lock();
+        if(playqueue[s_counter - 1].first != "adver"){
+          music.stop();
+          if ((s_counter > queue_size - 1 and queue_size > 0))
+            s_counter = queue_size - 1;
+          
+          if (playqueue[s_counter].second == "*DEL*" and s_counter > queue_size - 1)
+            s_counter--;        
+        }
+        player_cmd = 'c';
+        cool_mutex.unlock();
+      } else if (cmd == 'p') {
+        music.stop();
+        s_counter = s_counter - 2;
+        if (s_counter < 0)
+          s_counter = 0;
+        cool_mutex.lock();
+        while (playqueue[s_counter].second == "*DEL*" and s_counter > 0){
+          s_counter--;
+        }
+        player_cmd = 'c';
+        cool_mutex.unlock();
       }
-      player_cmd = 'c';
-      cool_mutex.unlock();
-    } else if (cmd == 'p') {
-      music.stop();
-      s_counter = s_counter - 2;
-      if (s_counter < 0)
-        s_counter = 0;
-      cool_mutex.lock();
-      while (playqueue[s_counter].second == "*DEL*" and s_counter > 0){
-        s_counter--;
-      }
-      player_cmd = 'c';
-      cool_mutex.unlock();
-    }
 
-    if (s_counter < queue_size and cmd == 'c') {
-      cool_mutex.lock();
-      outname = playqueue[s_counter].second;
-      song_name = playqueue[s_counter].first;
-      player_status = music.getStatus();
-      cool_mutex.unlock();
+      if (s_counter < queue_size and cmd == 'c') {
+        cool_mutex.lock();
+        outname = playqueue[s_counter].second;
+        song_name = playqueue[s_counter].first;
+        player_status = music.getStatus();
+        cool_mutex.unlock();
 
-      if (player_status == 0 ) {
-        if (outname == "*DEL*" ) {
-          s_counter ++;
-        } else if (music.openFromFile("tmp/" + outname)) {
-          cout << "------------------------" << endl;
-          cout << "Now playing: " << song_name << endl;
-          cout << "------------------------" << endl;
-          music.play();
-          s_counter++;
+        if (player_status == 0 ) {
+          if (outname == "*DEL*" ) {
+            s_counter ++;
+          } else if (music.openFromFile("tmp/" + outname)) {
+            cout << "------------------------" << endl;
+            cout << "Now playing: " << song_name << endl;
+            cout << "------------------------" << endl;
+            music.play();
+            s_counter++;
+          }
         }
       }
     }
