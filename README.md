@@ -2,7 +2,7 @@ zen-music-quest
 ===============
 
 
-Distributed music service, built as an programming assignment in client-server architecture class.
+Distributed music service, built as a programming assignment in client-server architecture class.
 
 Mainly we will use [ZMQ](http://zeromq.org/) to connect things, and [zmqpp](https://github.com/zeromq/zmqpp) to make it easier.
 
@@ -13,7 +13,7 @@ Mainly we will use [ZMQ](http://zeromq.org/) to connect things, and [zmqpp](http
 
 
         aptitude install uuid-dev uuid-runtime uuid
-- [libsfml](http://www.sfml-dev.org/)
+- [libsfml](http://www.sfml-dev.org/) (2.0 or higher)
  
         aptitude install libsfml-dev 
   
