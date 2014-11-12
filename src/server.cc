@@ -32,7 +32,6 @@ unordered_map<string, query> queries;
 unordered_map<string, int> solved_queries;
 // end ss.
 
-
 bool search_file(string name, string search_path){
   DIR* dirp = opendir(search_path.c_str());
   dirent* dp;
@@ -160,20 +159,32 @@ void search_song(socket &children, socket &parent, message &request, message &re
   string uuid, song_name;
   request >> uuid >> song_name;
 
+
+  cout << "Received req : " << uuid << endl;
+
   if (queries.count(uuid) == 0) {
     queries[uuid] = query(parent_id);
+
     if (av_children.count(parent_id) == 0 and parent_id != no_parent_id) {
       queries[uuid].is_client = true;
     }
   }
 
+  if (search_file(song_name, music_path)) {
+    cout << "song here :D " << uuid << address << endl;
+    queries[uuid].address = address;
+    queries[uuid].times   = 1;
+  }
+
   if (parent_id != no_parent_id and !is_root) {
+    cout << "Sent message to parent (search)" << endl;
     message message;
     message << "search" << uuid << song_name;
     parent.send(message);
   }
 
   for (auto child : av_children) {
+    cout << "Sent message to child (search)" << endl;
     if (child != parent_id) {
       message message;
       message << child << "search" << uuid << song_name;
@@ -187,7 +198,7 @@ void search_song(socket &children, socket &parent, message &request, message &re
     } else {
       response << "found" << uuid << "NF" << MAX_DOWNLOADS;
     }
-    queries.erase(uuid);
+    // queries.erase(uuid);
   }
 }
 
@@ -224,24 +235,38 @@ void dispatch_client(socket &children, socket &parent, message &incmsg, message 
 }
 
 void notify_answer(socket &children, socket &parent, socket &client, string &uuid, const string &parent_id ) {
+
+  if (queries.count(uuid) == 0) {
+    cout << uuid << endl;
+    cout << "Something went wrong" << endl;
+  }
   query &current = queries[uuid];
 
+  cout << uuid << endl;
+
   if (current.is_client) {
+    cout << "Message sent to client with answer : " << current.address << endl;
     message message;
     message << current.parent_id << current.address;
     client.send(message);
+    queries.erase(uuid);
     return;
   }
 
+  cout << "Sent message to someone with " << current.parts << " parts." << endl;
+
   if (av_children.count(current.parent_id) == 0 and parent_id != no_parent_id) {
-      message message;
-      message << "found" << uuid << current.address << current.times;
-      parent.send(message);
+    cout << "Message sent to parent with answer : " << current.address << endl;
+    message message;
+    message << "found" << uuid << current.address << current.times;
+    parent.send(message);
   } else {
+    cout << "Message sent to child with answer : " << current.address << endl;
     message message;
     message << current.parent_id << "found" << uuid << current.address << current.times;
     children.send(message);
   }
+  queries.erase(uuid);
 }
 
 
@@ -251,15 +276,22 @@ void process_answer(socket &children, socket &parent, socket &client, message &r
     request >> uuid >> answer >> times;
     query &current = queries[uuid];
     current.parts++;
+
+    cout << "Before " << queries[uuid].address << endl;
+
     if (answer != "NF") {
+      cout << "Times " << current.times << endl;
       if (current.times > times) {
         current.address = answer;
         current.times   = times;
       }
     } else {
-      current.times = MAX_DOWNLOADS;
-      current.address = "NF";
+      // current.times = MAX_DOWNLOADS;
+      // current.address = "NF";
     }
+
+    cout << "After " << queries[uuid].address << endl;
+    cout << "Partial answer" << endl;
 
     if (current.is_client) {
       if (is_root) {
