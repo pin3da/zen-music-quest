@@ -5,6 +5,8 @@
 #include "utils.cc"
 
 #define PIPELINE 10
+const size_t CHUNK_SIZE = 250000;
+
 
 using namespace std;
 using namespace zmqpp;
@@ -93,8 +95,16 @@ void connect_parent(socket &parent) {
   cout << "Accepted by parent!" << endl;
 }
 
-void replicate() {
-  // Cool async stuff begins here
+
+void replicate(const string &song_name, socket &children, socket &parent) {
+  message message;
+  message << "replicate" << song_name;
+  parent.send(message);
+
+  for (auto child : av_children) {
+    message << child << "replicate" << song_name;
+    children.send(message);
+  }
 }
 
 
@@ -102,7 +112,7 @@ void replicate() {
  *  send_song : Must be called after a "fetch" request is performed.
  *     Read from third frame : song_name
  * */
-void send_song(message &request, message &response) {
+void send_song(message &request, message &response, socket &children, socket &parent) {
   ifstream song;
   string song_name;
   string search_path = music_path;
@@ -129,7 +139,7 @@ void send_song(message &request, message &response) {
     if (song.gcount() < chunksz) { // Last block to send
       solved_queries[song_name]++;
       if (solved_queries[song_name] == MAX_DOWNLOADS) {
-        replicate();  // cool async stuff
+        replicate(song_name, children, parent);  // cool async stuff
         solved_queries[song_name] = relaxing_time;
       }
     }
@@ -211,28 +221,6 @@ void add_child(const string &identity, message &response) {
   }
 }
 
-void dispatch_client(socket &children, socket &parent, message &incmsg, message &output) {
-  string identity;
-  incmsg >> identity;
-
-  if (identity.size() == 0)
-    return; // Shutting down, quit
-
-  string command;
-  incmsg >> command;
-  if (command == "fetch") {
-    output << identity;
-    return send_song(incmsg, output);
-  }
-  if (command == "search") {
-    output << identity;
-    return search_song(children, parent, incmsg, output, identity);
-  }
-  if (command == "adver"){
-    output << identity;
-    return send_adver_name(output);
-  }
-}
 
 void notify_answer(socket &children, socket &parent, socket &client, string &uuid, const string &parent_id ) {
 
@@ -312,6 +300,83 @@ void process_answer(socket &children, socket &parent, socket &client, message &r
     }
 }
 
+
+
+void ask_for_song(socket &song_s, const string &song_name, string identity = "") {
+
+  const string output = "./Music/" + song_name;
+  // Up to this many chunks in transit
+  size_t credit = PIPELINE;
+
+  size_t total  = 0; // Total bytes received
+  size_t chunks = 0; // Total chunks received
+  size_t offset = 0; // Offset of next chunk request
+
+  ofstream song(output);
+
+  while (true) {
+    while (credit) {
+      // Ask for next chunk
+      message message;
+      if (identity.size())
+        message << identity;
+      message << "fetch" << song_name << offset << CHUNK_SIZE;
+      song_s.send(message);
+      offset += CHUNK_SIZE;
+      credit--;
+    }
+    message message;
+    song_s.receive(message);
+    string chunk;
+    message >> chunk;
+    if(chunk == "NF"){
+      cout << "Song not found" << endl;
+      break;
+    }
+    if (chunk.size() == 0)
+      break; // Shutting down, quit
+    chunks++;
+    credit++;
+    size_t size = chunk.size();
+    song.write(chunk.c_str(), size);
+    total += size;
+    if (size < CHUNK_SIZE)
+      break; // Last chunk received; exit
+  }
+
+  //printf("%zd chunks received, %zd bytes\n", chunks, total);
+  song.close();
+}
+
+void ask_for_song(socket &song_s, message &request, message &response, string identity = "") {
+  string song_name;
+  request >> song_name;
+  ask_for_song(song_s, song_name, identity);
+}
+
+void dispatch_client(socket &children, socket &parent, message &request, message &response) {
+  string identity;
+  request >> identity;
+
+  if (identity.size() == 0)
+    return; // Shutting down, quit
+
+  string command;
+  request >> command;
+  if (command == "fetch") {
+    response << identity;
+    return send_song(request, response, children, parent);
+  }
+  if (command == "search") {
+    response << identity;
+    return search_song(children, parent, request, response, identity);
+  }
+  if (command == "adver"){
+    response << identity;
+    return send_adver_name(response);
+  }
+}
+
 void dispatch_child(socket &children, socket &parent, socket &client, message &request, message &response) {
   string identity;
   request >> identity;
@@ -320,36 +385,44 @@ void dispatch_child(socket &children, socket &parent, socket &client, message &r
   string command;
   request >> command;
   response << identity;
-  if (command == "add") {
-    add_child(identity, response);
-    return;
-  }
-  if (command == "search") {
-    search_song(children, parent, request, response, identity);
-    return;
+  if (command == "add")
+    return add_child(identity, response);
+
+  if (command == "search")
+    return search_song(children, parent, request, response, identity);
+
+  if (command == "found")
+    return process_answer(children, parent, client, request, response, identity);
+
+  if (command == "replicate")
+    return ask_for_song(children, request, response, identity);
+
+  if (command == "fetch") {
+    response << identity;
+    return send_song(request, response, children, parent);
   }
 
-  if (command == "found") {
-    process_answer(children, parent, client, request, response, identity);
-    return;
-  }
   // response with an empty message otherwise
 }
-
 
 
 void dispatch_parent(socket &children, socket &parent, socket &client, message &request, message &response) {
   string command;
   request >> command;
 
-  if (command == "search") {
-    search_song(children, parent, request, response, no_parent_id);
-    return;
-  }
-  if (command == "found") {
-    process_answer(children, parent, client, request, response, no_parent_id);
-    return;
-  }
+  if (command == "search")
+    return search_song(children, parent, request, response, no_parent_id);
+
+  if (command == "found")
+    return process_answer(children, parent, client, request, response, no_parent_id);
+
+  if (command == "replicate")
+    return ask_for_song(parent, request, response);
+
+  if (command == "fetch")
+    return send_song(request, response, children, parent);
+
+
   // response with an empty message otherwise
 }
 
