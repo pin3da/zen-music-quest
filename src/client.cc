@@ -1,4 +1,10 @@
-#include <bits/stdc++.h>
+#include <queue>
+#include <mutex>
+#include <thread>
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <unordered_map>
 #include <zmqpp/zmqpp.hpp>
 #include <SFML/Audio.hpp>
 #include "utils.cc"
@@ -134,10 +140,10 @@ void download_queue(string server_endpoint){
           playqueue[song_num] = {"adver", outname};
           cool_mutex.unlock();
           song_num++;
-          if (song_num > 500) 
+          if (song_num > 500)
             song_num = 0;
         }
-                
+
         //cout << "after ask_for_adver: " << song_name << endl;
       } else{
         search_for_song(server, song_name, dload_endpoint);
@@ -147,7 +153,7 @@ void download_queue(string server_endpoint){
         } else {
           cout << "Your song will be here in no time!" << endl;
           dload.connect(dload_endpoint);
-          
+
           ask_for_song(dload, song_name, outname);
           cool_mutex.lock();
           playqueue[song_num] = {song_name, outname};
@@ -176,7 +182,7 @@ void play(){
     cool_mutex.lock();
     queue_size = playqueue.size();
     cool_mutex.unlock();
-    
+
     if (queue_size > 0){
       cool_mutex.lock();
       cmd = player_cmd;
@@ -194,9 +200,9 @@ void play(){
           music.stop();
           if ((s_counter > queue_size - 1 and queue_size > 0))
             s_counter = queue_size - 1;
-          
+
           if (playqueue[s_counter].second == "*DEL*" and s_counter > queue_size - 1)
-            s_counter--;        
+            s_counter--;
         }
         player_cmd = 'c';
         cool_mutex.unlock();

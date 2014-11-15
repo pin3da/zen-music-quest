@@ -1,4 +1,9 @@
-#include <bits/stdc++.h>
+#include <vector>
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <unordered_map>
+#include <unordered_set>
 #include <zmqpp/zmqpp.hpp>
 #include <dirent.h>
 

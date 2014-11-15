@@ -1,4 +1,6 @@
-#include <bits/stdc++.h>
+#include <vector>
+#include <string>
+#include <iostream>
 #include <zmqpp/zmqpp.hpp>
 
 using namespace std;

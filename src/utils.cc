@@ -1,5 +1,5 @@
+#include <string>
 #include <uuid/uuid.h>
-#include <bits/stdc++.h>
 
 namespace zen {
   namespace ports {
