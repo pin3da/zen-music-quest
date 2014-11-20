@@ -350,20 +350,26 @@ int main(int argc, char** argv) {
 
   is_root = true;
 
-  if (argc == 4) {
+
+  string broker_endpoint = "tcp://localhost:" + to_string(zen::ports::boker_server);
+
+  if (argc >= 4) {
     int client_port   = zen::ports::server_client + stoi(argv[2]);
     int children_port = zen::ports::server_server + stoi(argv[2]);
     client_endpoint += to_string(client_port);
     address  += argv[1] + string(":") + to_string(client_port);
     parent_endpoint += argv[3];
     children_endpoint += to_string(children_port);
+    if (argc == 5) {
+      broker_endpoint = argv[4];
+    }
+
   } else {
     // cout << "Must provide an IP and id" << endl;
     cout << "Usage : " << argv[0] << " ip id parent_ip" << endl;
     return 0;
   }
 
-  const string broker_endpoint = "tcp://localhost:" + to_string(zen::ports::boker_server);
   context context;
 
   socket broker(context, socket_type::req);

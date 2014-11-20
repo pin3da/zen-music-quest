@@ -8,9 +8,25 @@ using namespace zmqpp;
 
 vector<string> av_servers;
 
-int main() {
-  const string srv_endpoint = "tcp://*:6668",
-               cl_endpoint  = "tcp://*:6667";
+int main(int argc, char **argv) {
+
+  string server_port = "6668";
+  string client_port = "6667";
+
+  for (int i = 1; i < argc; ++i) {
+    string cur(argv[i]);
+    if (cur == "-c") {
+      client_port = argv[i + 1];
+      i++;
+    }
+    if (cur == "-s") {
+      server_port = argv[i + 1];
+      i++;
+    }
+  }
+
+  const string srv_endpoint = "tcp://*:" + server_port,
+               cl_endpoint  = "tcp://*:" + client_port;
 
   context ctx;
   socket servers(ctx, socket_type::rep);

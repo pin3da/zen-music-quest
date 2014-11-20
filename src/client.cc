@@ -266,10 +266,21 @@ void delete_song(string song_name){
 
 }
 
-int main(int argc, char** argv) {
-  const string broker_endpoint = "tcp://localhost:6667";
+int main(int argc, char **argv) {
+
+  string broker_endpoint = "tcp://localhost:6667";
   string server_endpoint = "tcp://localhost:6666";
   string dload_endpoint = "tcp://localhost:6666";
+
+  for (int i = 1; i < argc; ++i) {
+    string cur(argv[i]);
+    if (cur == "-br") {
+      broker_endpoint = argv[i + 1];
+      i++;
+    }
+  }
+
+
   string song_name;
 
   context ctx;
