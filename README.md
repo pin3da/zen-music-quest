@@ -35,7 +35,7 @@ You can also run the app manually and create your own topology:
 
 If you want one or several servers without parent just set the parent_ip = "tcp://localhost:4444"
 
-####Optional parameters
+####Optional parameters [Temporal]
 
 - Client:
     Option -br to specify the broker's address. Example:
