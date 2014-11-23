@@ -16,11 +16,8 @@ using namespace std;
 using namespace zmqpp;
 
 mutex cool_mutex;
-
 deque<string> playlist;
 unordered_map<int, pair<string, string>> playqueue;
-//unordered_map<string, string> corres;
-char player_cmd = 'c';
 
 /**
  * Example taken of : http://zguide.zeromq.org/c:fileio3
@@ -59,9 +56,9 @@ void ask_for_song(socket &song_s, const string &song_name, string output = "outp
     while (credit) {
       // Ask for next chunk
       message message;
-      if(is_adver){
+      if (is_adver) {
         message << "fetch" << "adver" << song_name << offset << CHUNK_SIZE;
-      }else{
+      } else {
         message << "fetch" << song_name << offset << CHUNK_SIZE;
       }
       song_s.send(message);
@@ -72,7 +69,7 @@ void ask_for_song(socket &song_s, const string &song_name, string output = "outp
     song_s.receive(message);
     string chunk;
     message >> chunk;
-    if(chunk == "NF"){
+    if (chunk == "NF") {
       cout << "Not Found" << endl;
       break;
     }
@@ -91,20 +88,20 @@ void ask_for_song(socket &song_s, const string &song_name, string output = "outp
   song.close();
 }
 
-void search_for_song(socket &server, string song_name, string &dload_endpoint){
+void search_for_song(socket &server, string song_name, string &dload_endpoint) {
   message outmsg, incmsg;
   string uuid = gen_uuid();
   outmsg << "search" << uuid << song_name;
   server.send(outmsg);
   server.receive(incmsg);
   incmsg >> dload_endpoint;
-  while(dload_endpoint == ""){
+  while (dload_endpoint == "") {
     server.receive(incmsg);
     incmsg >> dload_endpoint;
   }
 }
 
-void ask_for_adver(socket &server, string &adver_name){
+void ask_for_adver(socket &server, string &adver_name) {
   message outmsg, incmsg;
   outmsg << "adver";
   server.send(outmsg);
@@ -112,13 +109,14 @@ void ask_for_adver(socket &server, string &adver_name){
   incmsg >> adver_name;
 }
 
-
-void download_queue(string server_endpoint){
-  context ctx;
+void download_queue(string server_endpoint) {
   string dload_endpoint = "";
+
+  context ctx;
   socket server(ctx, socket_type::dealer);
-  server.connect(server_endpoint);
   socket dload(ctx, socket_type::dealer);
+  server.connect(server_endpoint);
+
   string song_name;
   int song_num = 0;
   while (true) {
@@ -132,9 +130,9 @@ void download_queue(string server_endpoint){
       playlist.pop_front();
       cool_mutex.unlock();
       string outname = "song" + to_string(song_num) + ".ogg";
-      if(song_name == "adver"){
+      if (song_name == "adver") {
         ask_for_adver(server, song_name);
-        if(song_name!= "NF"){
+        if (song_name!= "NF") {
           ask_for_song(server, song_name, outname, true);
           cool_mutex.lock();
           playqueue[song_num] = {"adver", outname};
@@ -143,9 +141,7 @@ void download_queue(string server_endpoint){
           if (song_num > 500)
             song_num = 0;
         }
-
-        //cout << "after ask_for_adver: " << song_name << endl;
-      } else{
+      } else {
         search_for_song(server, song_name, dload_endpoint);
         cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
         if (dload_endpoint == "NF" or dload_endpoint == "") {
@@ -164,13 +160,13 @@ void download_queue(string server_endpoint){
             song_num = 0;
           }
         }
-         cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
+        cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
       }
     }
   }
 }
 
-void play(){
+void play(char &player_cmd) {
   sf::Music music;
   int s_counter = 0;
   int player_status = 0;
@@ -182,8 +178,7 @@ void play(){
     cool_mutex.lock();
     queue_size = playqueue.size();
     cool_mutex.unlock();
-
-    if (queue_size > 0){
+    if (queue_size > 0) {
       cool_mutex.lock();
       cmd = player_cmd;
       cool_mutex.unlock();
@@ -212,7 +207,7 @@ void play(){
         if (s_counter < 0)
           s_counter = 0;
         cool_mutex.lock();
-        while (playqueue[s_counter].second == "*DEL*" and s_counter > 0){
+        while (playqueue[s_counter].second == "*DEL*" and s_counter > 0) {
           s_counter--;
         }
         player_cmd = 'c';
@@ -267,10 +262,9 @@ void delete_song(string song_name){
 }
 
 int main(int argc, char **argv) {
-
   string broker_endpoint = "tcp://localhost:6667";
   string server_endpoint = "tcp://localhost:6666";
-  string dload_endpoint = "tcp://localhost:6666";
+  string dload_endpoint  = "tcp://localhost:6666";
 
   for (int i = 1; i < argc; ++i) {
     string cur(argv[i]);
@@ -280,8 +274,8 @@ int main(int argc, char **argv) {
     }
   }
 
-
   string song_name;
+  char player_cmd = 'c';
 
   context ctx;
   socket broker(ctx, socket_type::req);
@@ -290,12 +284,11 @@ int main(int argc, char **argv) {
   ask_for_server(broker, server_endpoint);
 
   thread downloads(download_queue, server_endpoint);
-  thread playing(play);
+  thread playing(play, player_cmd);
   downloads.detach();
   playing.detach();
 
   string command = "";
-  //sf::Music music;
   int adv_counter = 0;
   while (command != "exit") {
     cout << "<<<<<<<<<<<<<<<<    >>>>>>>>>>>>>>>>" << endl;
@@ -311,7 +304,6 @@ int main(int argc, char **argv) {
       cin >> song_name;
       cool_mutex.lock();
       playlist.push_back(song_name);
-      //cout << playlist.front()<< endl;
       if(adv_counter > 3){
         playlist.push_back("adver");
         adv_counter = 0;

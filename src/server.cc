@@ -58,28 +58,24 @@ bool fill_adver_names(){
         adver_names.push_back(dp->d_name);
     }
   }
-  /*for(int i = 0; i < adver_names.size(); i++){
-    cout << "***" << adver_names[i] << "***" << endl;
-  }*/
   if(adver_names.size() > 0){
     return true;
   } else{
     return false;
   }
-
 }
 
 void wake_up(socket &broker, string &address){
   string ans;
   message incmsg, outmsg;
-  while(ans != "OK"){
+  while (ans != "OK") {
     outmsg << address;
     broker.send(outmsg);
     broker.receive(incmsg);
     incmsg >> ans;
   }
   cout << "Accepted by broker!" << endl;
-  if(fill_adver_names())
+  if (fill_adver_names())
     cout << "Added advertising!" << endl;
 }
 
@@ -92,7 +88,6 @@ void connect_parent(socket &parent) {
     parent.receive(incmsg);
     incmsg >> ans;
   }
-  // No orphan anymore :D
   cout << "Accepted by parent!" << endl;
 }
 
@@ -106,12 +101,12 @@ void send_song(message &request, message &response) {
   string search_path = music_path;
   request >> song_name;
 
-  if(song_name == "adver"){
+  if (song_name == "adver") {
     request >> song_name;
     search_path = adver_path;
   }
 
-  if (search_file(song_name, search_path)){
+  if (search_file(song_name, search_path)) {
     song.open(search_path +  "/" + song_name);
     size_t offset;
     request >> offset;
@@ -132,16 +127,15 @@ void send_song(message &request, message &response) {
   }
 }
 
-void send_adver_name(message &outmsg){
+void send_adver_name(message &outmsg) {
   int adver_sel = 0;
   srand(time(NULL));
-  if(adver_names.size() > 0){
+  if (adver_names.size() > 0) {
     adver_sel = rand() % adver_names.size();
     outmsg << adver_names[adver_sel];
-  } else{
+  } else {
     outmsg << "NF";
   }
-
 }
 
 void search_song(socket &children, socket &parent, message &request, message &response,
@@ -149,12 +143,10 @@ void search_song(socket &children, socket &parent, message &request, message &re
   string uuid, song_name;
   request >> uuid >> song_name;
 
-
   cout << "Received req : " << uuid << endl;
 
   if (queries.count(uuid) == 0) {
     queries[uuid] = query(parent_id);
-
     if (av_children.count(parent_id) == 0 and parent_id != no_parent_id) {
       queries[uuid].is_client = true;
     }
@@ -188,7 +180,6 @@ void search_song(socket &children, socket &parent, message &request, message &re
     } else {
       response << "found" << uuid << "NF" << MAX_DOWNLOADS;
     }
-    // queries.erase(uuid);
   }
 }
 
@@ -196,7 +187,6 @@ void add_child(const string &identity, message &response) {
   if (av_children.count(identity) == 0) {
     av_children.insert(identity);
     response << "OK";
-  } else {
   }
 }
 
@@ -217,14 +207,13 @@ void dispatch_client(socket &children, socket &parent, message &incmsg, message 
     output << identity;
     return search_song(children, parent, incmsg, output, identity);
   }
-  if (command == "adver"){
+  if (command == "adver") {
     output << identity;
     return send_adver_name(output);
   }
 }
 
 void notify_answer(socket &children, socket &parent, socket &client, string &uuid, const string &parent_id ) {
-
   if (queries.count(uuid) == 0) {
     cout << uuid << endl;
     cout << "Something went wrong" << endl;
@@ -274,9 +263,6 @@ void process_answer(socket &children, socket &parent, socket &client, message &r
         current.address = answer;
         current.times   = times;
       }
-    } else {
-      // current.times = MAX_DOWNLOADS;
-      // current.address = "NF";
     }
 
     cout << "After " << queries[uuid].address << endl;
@@ -349,7 +335,6 @@ int main(int argc, char** argv) {
          address = "tcp://";
 
   is_root = true;
-
 
   string broker_endpoint = "tcp://localhost:" + to_string(zen::ports::boker_server);
 

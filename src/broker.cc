@@ -6,9 +6,9 @@
 using namespace std;
 using namespace zmqpp;
 
-vector<string> av_servers;
 
 int main(int argc, char **argv) {
+  vector<string> av_servers;
 
   string server_port = "6668";
   string client_port = "6667";
@@ -40,9 +40,8 @@ int main(int argc, char **argv) {
   pol.add(clients);
 
   unsigned int n = 0;
-
   message incmsg, outmsg;
-  while(true){
+  while (true) {
     if (pol.poll()) {
       if (pol.has_input(servers)) {
         string srv_address;
